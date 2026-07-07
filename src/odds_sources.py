@@ -30,6 +30,7 @@ from .nt_odds import (
     PlayerIndex,
     build_surface_lookup,
     infer_surface,
+    load_slip,
     make_entry,
     save_slip,
 )
@@ -163,10 +164,12 @@ def fetch_all_odds(day: date_cls | None = None, *, matches: pd.DataFrame | None 
 
     entries: list[dict] = []
     warnings: list[str] = []
+    failed_books: set[str] = set()
 
     try:
         entries += fetch_pinnacle(day, matches=matches, index=index, verbose=verbose)
     except Exception as exc:
+        failed_books.add("pinnacle")
         warnings.append(f"Pinnacle feilet: {exc}")
 
     if include_nt:
@@ -175,7 +178,15 @@ def fetch_all_odds(day: date_cls | None = None, *, matches: pd.DataFrame | None 
             entries += fetch_nt_odds(day, matches=matches, index=index,
                                      save=False, verbose=verbose)
         except Exception as exc:
+            failed_books.add("nt")
             warnings.append(f"Norsk Tipping feilet: {exc}")
+
+    # Ikke kast dagens allerede hentede odds for en kilde som feilet NÅ —
+    # behold de gamle kampene fra den kilden i stedet.
+    kept = [e for e in load_slip(day) if e.get("book", "nt") in failed_books]
+    if kept:
+        warnings.append(f"beholdt {len(kept)} tidligere hentede kamper fra i dag")
+    entries = kept + entries
 
     if not entries:
         raise RuntimeError("Ingen odds fra noen kilde. " + "; ".join(warnings))

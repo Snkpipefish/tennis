@@ -72,3 +72,37 @@ def test_parse_pinnacle_hopper_over_stengt_marked() -> None:
     matchups = [_matchup(1, "ATP Wimbledon", "A", "B")]
     markets = [_market(1, 100, -120, status="suspended")]
     assert parse_pinnacle(matchups, markets) == []
+
+
+def test_fetch_all_beholder_gamle_odds_naar_kilde_feiler(tmp_path, monkeypatch) -> None:
+    # NT-odds fra i morges ligger i slippen; ny henting der NT feiler skal
+    # BEHOLDE dem og bare fornye Pinnacle-delen.
+    import pandas as pd
+
+    from src import nt_odds, odds_sources
+    from src.nt_odds import make_entry, save_slip
+
+    monkeypatch.setattr(nt_odds.config, "ODDS_DIR", tmp_path)
+    old_nt = make_entry(tour="atp", surface="Grass", book="nt",
+                        player_a_id=1, player_a_name="A", nt_odds_a=1.5,
+                        player_b_id=2, player_b_name="B", nt_odds_b=2.6)
+    save_slip([old_nt], replace=True)
+
+    pinn = make_entry(tour="atp", surface="Grass", book="pinnacle",
+                      player_a_id=1, player_a_name="A", nt_odds_a=1.4,
+                      player_b_id=2, player_b_name="B", nt_odds_b=3.0)
+    monkeypatch.setattr(odds_sources, "fetch_pinnacle", lambda *a, **k: [pinn])
+
+    def boom(*a, **k):
+        raise RuntimeError("NT nede")
+
+    monkeypatch.setattr(nt_odds, "fetch_nt_odds", boom)
+    monkeypatch.setattr(odds_sources, "PlayerIndex",
+                        type("PI", (), {"from_matches": staticmethod(lambda *a, **k: None)}))
+    monkeypatch.setattr(odds_sources, "load_slip", nt_odds.load_slip)
+
+    entries, warnings = odds_sources.fetch_all_odds(matches=pd.DataFrame({"tourney": [], "surface": []}))
+    books = sorted(e["book"] for e in entries)
+    assert books == ["nt", "pinnacle"]          # gammel NT beholdt + ny Pinnacle
+    assert any("Norsk Tipping feilet" in w for w in warnings)
+    assert len(nt_odds.load_slip()) == 2        # lagret flettet slip
