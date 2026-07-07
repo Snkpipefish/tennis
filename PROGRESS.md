@@ -304,6 +304,22 @@ cachen ble aldri oppfrisket -> modellen ville frosset. Fikset:
 - Kalibratoren refittes kun ved `setup` (Platt er stabil); vurder årlig.
 - 67 tester grønne.
 
+## NT DROPPET + skypublisering (2026-07-07 natt, Leifs beslutning)
+Leif: «det skal gå uavhengig av meg, så dropp bare NT». Gjort:
+- **config.INCLUDE_NT = False** — NT er ute av all flyt (koden i nt_odds.py
+  består dormant). Pinnacle er eneste odds-kilde; UI/rapport viser én
+  odds-kolonne. Konsekvens: «Anbefalte spill» er nesten alltid tom (man slår
+  ikke anker-boka) — produktet er TIPSENE.
+- **src/publish.py**: hele pipelinen (data + Elo + Pinnacle + tips) rendres
+  til statisk site/index.html. Kjørt lokalt OK (165 kamper).
+- **.github/workflows/publish.yml**: GitHub Actions kjører publish 4×/dag
+  (cron 04:30/10:30/15:30/20:30 UTC) + ved push, deployer til GitHub Pages.
+  Rådata caches mellom kjøringer (actions/cache). models/calibrator.pkl
+  (955 B) er unntatt fra .gitignore fordi skyen trenger den.
+- **Repo:** github.com/Snkpipefish/tennis (main). Side:
+  **https://snkpipefish.github.io/tennis/** — oppdateres uavhengig av Leif.
+- Lokal UI (main.py ui) virker fortsatt, nå uten NT.
+
 ## Gjennomgang 2026-07-07 (forbedringer)
 - **Sikkerhetsvakt i ev_engine:** kamper med uløst spiller-id (P≈0.5 fra
   default-rating) anbefales ALDRI — de ga falske kanter på høye odds. Ny
