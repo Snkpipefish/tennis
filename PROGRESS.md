@@ -292,9 +292,15 @@ cachen ble aldri oppfrisket -> modellen ville frosset. Fikset:
 - **track.auto_settle(matches):** åpne veddemål avgjøres AUTOMATISK mot nye
   resultater (samme spillerpar, dato innsats-1d..+14d). Kjøres etter hver
   dataoppdatering (UI + daily). Vant/Tapte-knappene består som fallback.
-- NB: tennis-data har 1–2 ukers etterslep på pågående turneringer (7. juli:
-  siste resultat 28. juni, midt i Wimbledon). Markeds-ankeret (Pinnacle)
-  priser inn fersk form daglig og kompenserer i mellomtiden.
+- ~~tennis-data-etterslep~~: LØST med `src/results.py` — ESPNs åpne
+  scoreboard-API (site.api.espn.com, ingen nøkkel) tetter gapet samme dag:
+  STATUS_FINAL hoveddraw-singler for dagene etter datasettets slutt (per
+  tour), dedup på competition-id, kun datoer etter tennis-data-cutoff (når
+  tennis-data tar igjen, tar dens rader over). Navn løses via PlayerIndex,
+  ukjente får syntetisk id. Cache per (tour, dag) i data/raw/results_cache/
+  (gamle dager evig, i dag/i går 6 t). Koblet inn i ingest.build_matches.
+  Verifisert live: 283 kamper 2026-06-29–07-07 (238 Wimbledon), siste
+  resultat = byggedagen. Elo-topp fortsatt sunn (Sinner 2431, Alcaraz 2367).
 - Kalibratoren refittes kun ved `setup` (Platt er stabil); vurder årlig.
 - 67 tester grønne.
 

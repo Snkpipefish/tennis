@@ -205,12 +205,21 @@ def build_matches(*, force_refresh: bool = False, verbose: bool = True, extend: 
     ].rename(columns={"tourney_name": "tourney"})
 
     if extend:
-        # Forleng med ferske resultater (tennis-data.co.uk) frem til i dag.
+        # Forleng med ferske resultater: først tennis-data.co.uk (odds + fulle
+        # data, 1-2 ukers etterslep), så ESPN-scoreboard for helt ferske dager.
         from .extend import build_extension
 
         ext = build_extension(out, verbose=verbose)
         if len(ext):
             out = pd.concat([out, ext], ignore_index=True)
+
+        from .results import build_results_extension
+
+        res = build_results_extension(out, verbose=verbose)
+        if len(res):
+            out = pd.concat([out, res], ignore_index=True)
+
+        if len(ext) or len(res):
             out["round_order"] = out["round"].map(round_order)
             out = out.sort_values(["date", "tour", "tourney", "round_order"], kind="stable")
             out = out.drop(columns=["round_order"]).reset_index(drop=True)
