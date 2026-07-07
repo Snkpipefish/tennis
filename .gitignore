@@ -5,9 +5,10 @@ __pycache__/
 
 # Data og modeller (store, gjenbyggbare med `python main.py setup`)
 data/
-models/
-# ... men kalibratoren (955 byte) committes: GitHub Actions trenger den,
-# og full rekalibrering i skyen er unødvendig dyrt.
+# models/ ekskluderes per fil (ikke som katalog!) slik at unntaket under
+# faktisk virker: kalibratoren (955 byte) committes fordi GitHub Actions
+# trenger den, og full rekalibrering i skyen er unødvendig dyrt.
+models/*
 !models/calibrator.pkl
 
 # Generert statisk side (deployes som Pages-artifact, ikke i repo)
