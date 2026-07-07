@@ -59,8 +59,10 @@ PINNACLE_TENNIS_SPORT_ID = 33
 # priser inn skader/form/nyheter som Elo ikke ser — derfor mest vekt der.
 MARKET_BLEND_WEIGHT = 0.7
 
-# Bøker Leif faktisk kan legge veddemål hos (vis EV, anbefal spill).
-# Pinnacle vises som referanse men er sjelden spillbar fra Norge.
+# Bøker. NT er DROPPET fra flyten (Leifs beslutning 2026-07-07: alt skal gå
+# uavhengig av ham, og NT-skrapingen krevde hans hjemme-IP + nettleser).
+# Koden i nt_odds.py består dormant; sett INCLUDE_NT=True for å reaktivere.
+INCLUDE_NT = False
 BOOK_LABELS = {"nt": "Norsk Tipping", "pinnacle": "Pinnacle"}
 
 # Innsatser regnes per 1000 kr bankroll (vises slik i UI/rapport) — UI-et

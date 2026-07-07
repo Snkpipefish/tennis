@@ -101,6 +101,9 @@ def build_overview(entries: list[dict], df: pd.DataFrame) -> list[dict]:
             **m,
             "time": _fmt_time(m["start"]),
             "odds_str": {b: f"{o[0]:.2f} / {o[1]:.2f}" for b, o in m["odds"].items()},
+            "odds_main": next((f"{o[0]:.2f} / {o[1]:.2f}" for b, o in m["odds"].items()
+                               if b == "pinnacle"),
+                              next(f"{o[0]:.2f} / {o[1]:.2f}" for o in m["odds"].values())),
             "tip_side": tip_side,
             "tip_name": m["name_a"] if tip_side == "a" else m["name_b"],
             "tip_p": f"{'~' if tip_approx else ''}{max(tip_pa, 1-tip_pa)*100:.0f} %",
@@ -174,7 +177,7 @@ TEMPLATE = """
     <button class="btn sec" type="submit">Oppdater data &amp; modell</button></form>
   <form method="post" action="{{ url_for('log') }}" class="inline">
     <button class="btn sec" type="submit">Loggfør anbefalte</button></form>
-  <span class="muted" style="font-size:13px">Henter Pinnacle + Norsk Tipping i bakgrunnen — ingen vinduer.</span>
+  <span class="muted" style="font-size:13px">Henter Pinnacle-odds og ferske resultater automatisk.</span>
 </div></div>
 
 <div class="card">
@@ -207,15 +210,14 @@ TEMPLATE = """
       <summary>{{ sec.title }} <span class="muted">({{ sec.n }} kamper)</span></summary>
       {% for t in sec.tournaments %}
       <h3>{{ t.name }} <span class="pill">{{ t.tour }}</span><span class="pill">{{ t.surface }}</span></h3>
-      <table><tr><th>Tid</th><th>Kamp</th><th>Tips</th><th class="num">NT</th><th class="num">Pinnacle</th><th>Verdi</th></tr>
+      <table><tr><th>Tid</th><th>Kamp</th><th>Tips</th><th class="num">Odds</th><th>Verdi</th></tr>
       {% for m in t.matches %}<tr>
         <td class="muted num">{{ m.time }}</td>
         <td>{% if m.tip_side == 'a' %}<b>{{ m.name_a }}</b> – <span class="muted">{{ m.name_b }}</span>
             {% else %}<span class="muted">{{ m.name_a }}</span> – <b>{{ m.name_b }}</b>{% endif %}
             {% if m.kind == 'double' %}<span class="pill d">Double</span>{% endif %}</td>
         <td class="num"><b>{{ m.tip_name }}</b> {{ m.tip_p }}</td>
-        <td class="num">{{ m.odds_str.get('nt', '–') }}</td>
-        <td class="num">{{ m.odds_str.get('pinnacle', '–') }}</td>
+        <td class="num">{{ m.odds_main }}</td>
         <td>{% if m.bet_str %}<span class="betline">✔ {{ m.bet_str }}</span>
             {% elif m.value_str %}<span class="{{ m.value_cls }}">{{ m.value_str }}</span>
             {% else %}<span class="muted">–</span>{% endif %}</td>

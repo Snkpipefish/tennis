@@ -81,7 +81,7 @@ def cmd_daily(argv: list[str]) -> None:
     n_settled = track.auto_settle(matches)
     if n_settled:
         print(f"  {n_settled} åpne veddemål auto-avgjort fra nye resultater.")
-    print("[3/4] Henter odds (Pinnacle + NT) ...")
+    print("[3/4] Henter odds (Pinnacle) ...")
     try:
         odds_sources.fetch_all_odds(matches=matches)
     except Exception as exc:

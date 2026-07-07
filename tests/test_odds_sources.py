@@ -111,7 +111,8 @@ def test_fetch_all_beholder_gamle_odds_naar_kilde_feiler(tmp_path, monkeypatch) 
                         type("PI", (), {"from_matches": staticmethod(lambda *a, **k: None)}))
     monkeypatch.setattr(odds_sources, "load_slip", nt_odds.load_slip)
 
-    entries, warnings = odds_sources.fetch_all_odds(matches=pd.DataFrame({"tourney": [], "surface": []}))
+    entries, warnings = odds_sources.fetch_all_odds(
+        matches=pd.DataFrame({"tourney": [], "surface": []}), include_nt=True)
     books = sorted(e["book"] for e in entries)
     assert books == ["nt", "pinnacle"]          # gammel NT beholdt + ny Pinnacle
     assert any("Norsk Tipping feilet" in w for w in warnings)

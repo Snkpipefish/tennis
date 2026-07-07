@@ -1,0 +1,53 @@
+# Publiserer dagens tennis-tips til GitHub Pages — helt automatisk, fire
+# ganger daglig. Kjører hele pipelinen i skyen: data (Sackmann-speil +
+# tennis-data + ESPN-resultater) -> Elo -> Pinnacle-odds -> statisk side.
+name: publish
+
+on:
+  schedule:
+    - cron: "30 4,10,15,20 * * *"   # UTC — morgen/formiddag/ettermiddag/kveld norsk tid
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # Historiske rådata endrer seg aldri — cache dem mellom kjøringer.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            data/raw/*.csv
+            data/odds/tennis_data_cache
+            data/raw/results_cache
+          key: rawdata-v1-${{ github.run_id }}
+          restore-keys: rawdata-v1-
+      - run: pip install pandas numpy scikit-learn pyarrow requests openpyxl flask
+      - run: python -m src.publish
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

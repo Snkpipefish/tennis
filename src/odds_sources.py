@@ -162,14 +162,17 @@ def fetch_pinnacle(day: date_cls | None = None, *, matches: pd.DataFrame | None 
 
 
 def fetch_all_odds(day: date_cls | None = None, *, matches: pd.DataFrame | None = None,
-                   include_nt: bool = True, save: bool = True,
+                   include_nt: bool | None = None, save: bool = True,
                    verbose: bool = True) -> tuple[list[dict], list[str]]:
     """Hent odds fra alle kilder til ÉN samlet slip (overskriver dagens).
 
-    Pinnacle først (raskt HTTP-kall, gir sentiment-anker + mange kamper),
-    deretter NT via nettleser (tregt/flaky — feil er ikke fatale).
+    Pinnacle er hovedkilden (raskt HTTP-kall, sentiment-anker + mange kamper).
+    NT er droppet fra flyten (config.INCLUDE_NT=False) — krevde norsk
+    hjemme-IP og nettleser, og alt skal gå uavhengig av Leif.
     Returnerer (entries, advarsler).
     """
+    if include_nt is None:
+        include_nt = config.INCLUDE_NT
     if matches is None:
         from .ingest import load_matches
         matches = load_matches()
