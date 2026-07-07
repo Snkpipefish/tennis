@@ -152,6 +152,8 @@ TEMPLATE = """
   .pos{color:var(--pos)} .neg{color:var(--neg)}
   .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;background:#22304a;color:#9fc1ff;margin-left:6px}
   .pill.d{background:#3a2b4a;color:#d2a8ff}
+  .tp{color:#9fc1ff;font-weight:600;font-size:13px;white-space:nowrap}
+  .od{white-space:nowrap}
   .btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer}
   .btn.sec{background:#26324a} .btn.win{background:var(--pos)} .btn.loss{background:var(--neg)}
   .btn:hover{filter:brightness(1.1)}
@@ -163,6 +165,16 @@ TEMPLATE = """
   .betline{background:#15281a;border:1px solid #2ea04355;border-radius:8px;padding:2px 8px;color:#7ee787;font-size:13px;white-space:nowrap}
   details{margin:4px 0 10px} summary{cursor:pointer;font-weight:600;padding:6px 0;font-size:14px}
   summary:hover{color:#9fc1ff}
+  @media (max-width:640px){
+    .wrap{padding:12px} body{font-size:14px}
+    table,tbody,tr{display:block;width:100%}
+    tr{padding:7px 0;border-bottom:1px solid var(--line)}
+    tr:last-child{border-bottom:none}
+    tr.h{display:none}
+    td,td.num{display:inline;border:none;padding:0 8px 0 0;text-align:left;white-space:normal}
+    td.od{white-space:nowrap}
+    .betline{white-space:normal;display:inline-block;margin-top:3px}
+  }
 </style></head><body><div class="wrap">
 
 <h1>🎾 Tennis +EV</h1>
@@ -212,17 +224,15 @@ TEMPLATE = """
       <summary>{{ sec.title }} <span class="muted">({{ sec.n }} kamper)</span></summary>
       {% for t in sec.tournaments %}
       <h3>{{ t.name }} <span class="pill">{{ t.tour }}</span><span class="pill">{{ t.surface }}</span></h3>
-      <table><tr><th>Tid</th><th>Kamp</th><th>Tips</th><th class="num">Odds</th><th>Verdi</th></tr>
+      <table><tr class="h"><th>Tid</th><th>Kamp (favoritt uthevet)</th><th class="num">Odds</th><th>Verdi</th></tr>
       {% for m in t.matches %}<tr>
         <td class="muted num">{{ m.time }}</td>
-        <td>{% if m.tip_side == 'a' %}<b>{{ m.name_a }}</b> – <span class="muted">{{ m.name_b }}</span>
-            {% else %}<span class="muted">{{ m.name_a }}</span> – <b>{{ m.name_b }}</b>{% endif %}
+        <td>{% if m.tip_side == 'a' %}<b>{{ m.name_a }}</b> <span class="tp">{{ m.tip_p }}</span> <span class="muted">– {{ m.name_b }}</span>
+            {% else %}<span class="muted">{{ m.name_a }} –</span> <b>{{ m.name_b }}</b> <span class="tp">{{ m.tip_p }}</span>{% endif %}
             {% if m.kind == 'double' %}<span class="pill d">Double</span>{% endif %}</td>
-        <td class="num"><b>{{ m.tip_name }}</b> {{ m.tip_p }}</td>
-        <td class="num">{{ m.odds_main }}</td>
+        <td class="num od">{{ m.odds_main }}</td>
         <td>{% if m.bet_str %}<span class="betline">✔ {{ m.bet_str }}</span>
-            {% elif m.value_str %}<span class="{{ m.value_cls }}">{{ m.value_str }}</span>
-            {% else %}<span class="muted">–</span>{% endif %}</td>
+            {% elif m.value_str %}<span class="{{ m.value_cls }}">{{ m.value_str }}</span>{% endif %}</td>
       </tr>{% endfor %}
       </table>
       {% endfor %}

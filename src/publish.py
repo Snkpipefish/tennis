@@ -40,6 +40,8 @@ _PAGE = """<!doctype html><html lang="no"><head><meta charset="utf-8">
   .pos{{color:var(--pos)}} .muted{{color:var(--muted)}} .empty{{color:var(--muted);padding:8px 0}}
   .pill{{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;background:#22304a;color:#9fc1ff;margin-left:6px}}
   .pill.d{{background:#3a2b4a;color:#d2a8ff}}
+  .tp{{color:#9fc1ff;font-weight:600;font-size:13px;white-space:nowrap}}
+  .od{{white-space:nowrap}}
   .betline{{background:#15281a;border:1px solid #2ea04355;border-radius:8px;padding:2px 8px;color:#7ee787;font-size:13px;white-space:nowrap}}
   details{{margin:4px 0 10px}} summary{{cursor:pointer;font-weight:600;padding:6px 0;font-size:14px}}
   /* Mobil: tabeller blir flytende tekstlinjer per kamp i stedet for brede kolonner. */
@@ -50,6 +52,7 @@ _PAGE = """<!doctype html><html lang="no"><head><meta charset="utf-8">
     tr:last-child{{border-bottom:none}}
     tr.h{{display:none}}
     td,td.num{{display:inline;border:none;padding:0 8px 0 0;text-align:left;white-space:normal}}
+    td.od{{white-space:nowrap}}
     .betline{{white-space:normal;display:inline-block;margin-top:3px}}
   }}
 </style></head><body><div class="wrap">
@@ -92,21 +95,22 @@ def _overview_html(sections: list[dict]) -> str:
         for t in sec["tournaments"]:
             L.append(f'<h3>{t["name"]} <span class="pill">{t["tour"]}</span>'
                      f'<span class="pill">{t["surface"]}</span></h3>')
-            L.append('<table><tr class="h"><th>Tid</th><th>Kamp</th><th>Tips</th>'
+            L.append('<table><tr class="h"><th>Tid</th><th>Kamp (favoritt uthevet)</th>'
                      '<th class="num">Odds</th><th>Verdi</th></tr>')
             for m in t["matches"]:
+                # Favoritten nevnes ÉN gang: uthevet, med prosenten limt på.
                 if m["tip_side"] == "a":
-                    kamp = f'<b>{m["name_a"]}</b> – <span class="muted">{m["name_b"]}</span>'
+                    kamp = (f'<b>{m["name_a"]}</b> <span class="tp">{m["tip_p"]}</span> '
+                            f'<span class="muted">– {m["name_b"]}</span>')
                 else:
-                    kamp = f'<span class="muted">{m["name_a"]}</span> – <b>{m["name_b"]}</b>'
+                    kamp = (f'<span class="muted">{m["name_a"]} –</span> '
+                            f'<b>{m["name_b"]}</b> <span class="tp">{m["tip_p"]}</span>')
                 if m["kind"] == "double":
                     kamp += '<span class="pill d">Double</span>'
                 verdi = (f'<span class="betline">✔ {m["bet_str"]}</span>' if m["bet_str"]
-                         else (f'<span class="pos">{m["value_str"]}</span>' if m["value_str"]
-                               else '<span class="muted">–</span>'))
+                         else (f'<span class="pos">{m["value_str"]}</span>' if m["value_str"] else ""))
                 L.append(f'<tr><td class="muted num">{m["time"]}</td><td>{kamp}</td>'
-                         f'<td class="num"><b>{m["tip_name"]}</b> {m["tip_p"]}</td>'
-                         f'<td class="num">{m["odds_main"]}</td><td>{verdi}</td></tr>')
+                         f'<td class="num od">{m["odds_main"]}</td><td>{verdi}</td></tr>')
             L.append("</table>")
         L.append("</details>")
     L.append("</div>")
