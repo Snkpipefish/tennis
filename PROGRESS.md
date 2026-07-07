@@ -226,6 +226,19 @@ Vedlikehold: `python main.py setup` bygger alt på nytt + validering. Kalibrator
 `calibrate.load_calibrator()` + `apply_calibrator()`. Inkrementell Elo:
 `EloModel.load()` -> prosesser nye kamper -> `.save()`.
 
+## Gjennomgang 2026-07-07 (forbedringer)
+- **Sikkerhetsvakt i ev_engine:** kamper med uløst spiller-id (P≈0.5 fra
+  default-rating) anbefales ALDRI — de ga falske kanter på høye odds. Ny
+  kolonne `known`; rapporten viser «nei (ukjent spiller)».
+- **Innsatstak:** `MAX_STAKE_FRACTION = 0.05` — aldri mer enn 5 % av bankroll
+  på ett veddemål, uansett hvor stor kant Kelly regner seg til.
+- **Auto-retry i fetch_nt_odds:** opptil 3 ferske nettleserøkter (NT_SESSIONS
+  styrer antall) før den gir opp — «kjør daily på nytt» skjer nå av seg selv.
+- **UI:** fjernet utdatert bokmerke-tekst, knappene viser «Jobber …» mens
+  henting/oppdatering pågår.
+- **Git:** prosjektet er nå under versjonskontroll (.gitignore utelater
+  .venv/, data/, models/ og genererte png-er). 56 tester grønne.
+
 ## Hvordan kjøre
 - Bygg data: `. .venv/bin/activate && python -m src.ingest`
 - Tester: `python -m pytest -q`
