@@ -83,7 +83,9 @@ def build_overview(entries: list[dict], df: pd.DataFrame) -> list[dict]:
             if not ga.empty and bool(ga.iloc[0]["known"]):
                 tip_pa = float(ga.iloc[0]["model_p"])
             best = g.sort_values("ev", ascending=False).iloc[0]
-            if best["ev"] > 0:
+            # Vis verdi kun når modellen kjenner spillerne — ellers er stor
+            # "EV" bare default-rating-støy på høye odds.
+            if best["ev"] > 0 and bool(best["known"]):
                 value_str = f"{best['ev']*100:+.1f} %"
                 value_cls = "pos"
             b = g[g["bet"]]

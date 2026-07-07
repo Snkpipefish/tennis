@@ -42,6 +42,16 @@ _PAGE = """<!doctype html><html lang="no"><head><meta charset="utf-8">
   .pill.d{{background:#3a2b4a;color:#d2a8ff}}
   .betline{{background:#15281a;border:1px solid #2ea04355;border-radius:8px;padding:2px 8px;color:#7ee787;font-size:13px;white-space:nowrap}}
   details{{margin:4px 0 10px}} summary{{cursor:pointer;font-weight:600;padding:6px 0;font-size:14px}}
+  /* Mobil: tabeller blir flytende tekstlinjer per kamp i stedet for brede kolonner. */
+  @media (max-width:640px){{
+    .wrap{{padding:12px}} body{{font-size:14px}}
+    table,tbody,tr{{display:block;width:100%}}
+    tr{{padding:7px 0;border-bottom:1px solid var(--line)}}
+    tr:last-child{{border-bottom:none}}
+    tr.h{{display:none}}
+    td,td.num{{display:inline;border:none;padding:0 8px 0 0;text-align:left;white-space:normal}}
+    .betline{{white-space:normal;display:inline-block;margin-top:3px}}
+  }}
 </style></head><body><div class="wrap">
 <h1>🎾 Tennis +EV — dagens tips</h1>
 <p class="sub">Oppdatert {updated} · P = marked (Pinnacle, de-vigget) + kalibrert Elo trent på {n_matches_total:,} kamper t.o.m. {last_result} · ~ = anslag fra markedet · innsats i kr per 1000 kr bankroll</p>
@@ -57,7 +67,7 @@ def _bets_html(bets: list[dict]) -> str:
         L.append('<p class="empty">Ingen kanter akkurat nå — ingen odds slår markedets '
                  'fair pris med margin. Tipsene står under.</p>')
     else:
-        L.append("<table><tr><th>Turnering</th><th>Kamp</th><th>Spill på</th>"
+        L.append('<table><tr class="h"><th>Turnering</th><th>Kamp</th><th>Spill på</th>'
                  '<th class="num">P</th><th class="num">Odds</th><th class="num">EV%</th>'
                  '<th class="num">kr / 1000</th></tr>')
         for b in bets:
@@ -82,7 +92,7 @@ def _overview_html(sections: list[dict]) -> str:
         for t in sec["tournaments"]:
             L.append(f'<h3>{t["name"]} <span class="pill">{t["tour"]}</span>'
                      f'<span class="pill">{t["surface"]}</span></h3>')
-            L.append('<table><tr><th>Tid</th><th>Kamp</th><th>Tips</th>'
+            L.append('<table><tr class="h"><th>Tid</th><th>Kamp</th><th>Tips</th>'
                      '<th class="num">Odds</th><th>Verdi</th></tr>')
             for m in t["matches"]:
                 if m["tip_side"] == "a":
