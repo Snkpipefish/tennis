@@ -21,7 +21,7 @@ def test_index_rendrer(client) -> None:
     html = r.data.decode()
     assert "Tennis +EV" in html
     assert "Anbefalte spill" in html
-    assert "Alle turneringer og kamper" in html
+    assert "Kamper og tips" in html
     assert "Track record" in html
     assert "bankroll" not in html.lower().replace("kr bankroll", "")  # ingen bankroll-felt
 
@@ -67,8 +67,9 @@ def test_oversikt_grupperer_og_viser_double(client, monkeypatch) -> None:
     html = client.get("/").data.decode()
     assert "Wimbledon Men Singles - ATP" in html
     assert "Wimbledon Men Doubles - ATP" in html
-    assert "A / B – C / D" in html
+    assert "A / B" in html and "C / D" in html
     assert "Double" in html
+    assert "Sterk" in html  # tips vises (modellens favoritt)
 
 
 def test_build_overview_slaar_sammen_boeker() -> None:
@@ -84,8 +85,12 @@ def test_build_overview_slaar_sammen_boeker() -> None:
                       tournament="ATP Wimbledon",
                       player_a_id=2, player_a_name="Svak", nt_odds_a=2.8,  # motsatt rekkefølge
                       player_b_id=1, player_b_name="Sterk", nt_odds_b=1.45)
-    ts = ui.build_overview([nt, pinn], pd.DataFrame())
+    sections = ui.build_overview([nt, pinn], pd.DataFrame())
+    assert len(sections) == 1 and sections[0]["title"] == "Hovedtour"
+    ts = sections[0]["tournaments"]
     assert len(ts) == 1                       # samme kamp -> én rad
     m = ts[0]["matches"][0]
     assert m["odds_str"]["nt"] == "1.50 / 2.60"
     assert m["odds_str"]["pinnacle"] == "1.45 / 2.80"  # snudd riktig vei
+    # Tips finnes selv uten modell-df: markedets implisitte favoritt (~).
+    assert m["tip_name"] == "Sterk" and m["tip_p"].startswith("~")

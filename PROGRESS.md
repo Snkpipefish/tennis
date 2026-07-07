@@ -268,6 +268,17 @@ ikke bankroll-felt, ikke NT-vindu som popper opp. Gjort:
 - make_entry har `kind` og `start` (ISO); df har tournament/start/match_key.
 - 66 tester grønne. Live: 155 Pinnacle + 2 NT, 41 turneringer, 6 double.
 
+## UI v3: kompakt + tips på alt (2026-07-07 sen kveld, Leifs tilbakemelding)
+Leif: «veldig uoversiktlig» + vil ha antagelser selv når oddsen er dårlig.
+- Én kompakt rad per kamp: Tid | Kamp (favoritt i fet) | **Tips** (navn + %) |
+  NT | Pinnacle | Verdi (grønn SPILL-linje eller +EV%).
+- Tips på ALLE kamper: modellens blandede P når spillerne er kjent, ellers
+  markedets implisitte P fra oddsene, merket `~` (double/ukjente spillere).
+  `ui.build_overview` regner dette; kolonnene Modell-P/Marked-P er fjernet.
+- Nivåseksjoner som <details>: Hovedtour (åpen), Challenger og ITF
+  (sammenlagt som standard) — hovedtouren dominerer siden.
+- 66 tester grønne; live: 155 kamper, alle med tips.
+
 ## Gjennomgang 2026-07-07 (forbedringer)
 - **Sikkerhetsvakt i ev_engine:** kamper med uløst spiller-id (P≈0.5 fra
   default-rating) anbefales ALDRI — de ga falske kanter på høye odds. Ny

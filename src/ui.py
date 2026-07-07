@@ -37,8 +37,19 @@ def _fmt_pp(pa: float) -> str:
     return f"{pa*100:.0f}–{(1-pa)*100:.0f} %"
 
 
+def _level_of(tournament: str) -> str:
+    low = tournament.lower()
+    if "challenger" in low:
+        return "Challenger"
+    if "itf" in low:
+        return "ITF"
+    return "Hovedtour"
+
+
 def build_overview(entries: list[dict], df: pd.DataFrame) -> list[dict]:
-    """Slip + EV-tabell -> turneringer med kamper nedover, ferdig formatert."""
+    """Slip + EV-tabell -> nivåseksjoner (Hovedtour/Challenger/ITF) med
+    turneringer og kamper, ferdig formatert. HVER kamp får maskinens tips
+    (favoritt + prosent) — også når det ikke finnes noe å spille."""
     matches: dict[str, dict] = {}
     for e in entries:
         key = ev_engine.match_key_of(e)
@@ -62,44 +73,56 @@ def build_overview(entries: list[dict], df: pd.DataFrame) -> list[dict]:
     by_key = df.groupby("match_key") if not df.empty else None
     rows: dict[str, dict] = {}
     for key, m in matches.items():
-        p_str = mkt_str = "–"
-        best_str, best_cls, bet_str = "", "", ""
+        # Maskinens tips: modellens blandede P når spillerne er kjent,
+        # ellers markedets implisitte P fra oddsene (merket med ~).
+        tip_pa, tip_approx = None, False
+        value_str, value_cls, bet_str = "", "", ""
         if by_key is not None and key in by_key.groups:
             g = df.loc[by_key.groups[key]]
             ga = g[g["bet_on"] == m["name_a"]]
-            if not ga.empty:
-                r = ga.iloc[0]
-                p_str = _fmt_pp(r["model_p"])
-                if pd.notna(r["market_p"]):
-                    mkt_str = _fmt_pp(r["market_p"])
+            if not ga.empty and bool(ga.iloc[0]["known"]):
+                tip_pa = float(ga.iloc[0]["model_p"])
             best = g.sort_values("ev", ascending=False).iloc[0]
-            best_str = f"{best['ev']*100:+.1f} % ({best['bet_on']} @ {best['nt_odds']:.2f})"
-            best_cls = "pos" if best["ev"] > 0 else "neg"
+            if best["ev"] > 0:
+                value_str = f"{best['ev']*100:+.1f} %"
+                value_cls = "pos"
             b = g[g["bet"]]
             if not b.empty:
                 bb = b.sort_values("ev", ascending=False).iloc[0]
                 bet_str = (f"{bb['bet_on']} @ {bb['nt_odds']:.2f} hos "
                            f"{config.BOOK_LABELS.get(bb['book'], bb['book'])} — "
-                           f"{bb['stake_kr']:.0f} kr per 1000")
+                           f"{bb['stake_kr']:.0f} kr/1000")
+        if tip_pa is None:
+            oa, ob = m["odds"].get("pinnacle") or next(iter(m["odds"].values()))
+            tip_pa = (1.0 / oa) / (1.0 / oa + 1.0 / ob)
+            tip_approx = True
+        tip_side = "a" if tip_pa >= 0.5 else "b"
         rows[key] = {
             **m,
             "time": _fmt_time(m["start"]),
-            "label": f"{m['name_a']} – {m['name_b']}",
             "odds_str": {b: f"{o[0]:.2f} / {o[1]:.2f}" for b, o in m["odds"].items()},
-            "p_str": p_str, "mkt_str": mkt_str,
-            "best_str": best_str, "best_cls": best_cls, "bet_str": bet_str,
+            "tip_side": tip_side,
+            "tip_name": m["name_a"] if tip_side == "a" else m["name_b"],
+            "tip_p": f"{'~' if tip_approx else ''}{max(tip_pa, 1-tip_pa)*100:.0f} %",
+            "value_str": value_str, "value_cls": value_cls, "bet_str": bet_str,
             "sort_start": str(m["start"] or "9999"),
         }
 
     tournaments: dict[str, list] = {}
     for r in rows.values():
         tournaments.setdefault(r["tournament"] or "(ukjent turnering)", []).append(r)
-    out = []
+    levels: dict[str, list] = {"Hovedtour": [], "Challenger": [], "ITF": []}
     for name, ms in tournaments.items():
         ms.sort(key=lambda r: r["sort_start"])
-        out.append({"name": name, "surface": ms[0]["surface"], "tour": ms[0]["tour"].upper(),
-                    "matches": ms, "sort": ms[0]["sort_start"]})
-    out.sort(key=lambda t: (t["sort"], t["name"]))
+        levels[_level_of(name)].append(
+            {"name": name, "surface": ms[0]["surface"], "tour": ms[0]["tour"].upper(),
+             "matches": ms, "sort": ms[0]["sort_start"]})
+    out = []
+    for title in ("Hovedtour", "Challenger", "ITF"):
+        ts = sorted(levels[title], key=lambda t: (t["sort"], t["name"]))
+        if ts:
+            out.append({"title": title, "open": title == "Hovedtour",
+                        "tournaments": ts, "n": sum(len(t["matches"]) for t in ts)})
     return out
 
 
@@ -133,6 +156,8 @@ TEMPLATE = """
   .stat{display:inline-block;margin-right:28px} .stat b{font-size:20px;display:block}
   .muted{color:var(--muted)} .empty{color:var(--muted);padding:8px 0}
   .betline{background:#15281a;border:1px solid #2ea04355;border-radius:8px;padding:2px 8px;color:#7ee787;font-size:13px;white-space:nowrap}
+  details{margin:4px 0 10px} summary{cursor:pointer;font-weight:600;padding:6px 0;font-size:14px}
+  summary:hover{color:#9fc1ff}
 </style></head><body><div class="wrap">
 
 <h1>🎾 Tennis +EV</h1>
@@ -167,30 +192,37 @@ TEMPLATE = """
     <td class="num pos">+{{ '%.1f'|format(b.ev*100) }}</td>
     <td class="num"><b>{{ '%.0f'|format(b.stake_kr) }}</b></td></tr>{% endfor %}
   </table>
-  {% elif tournaments %}
-  <p class="empty">Ingen kanter akkurat nå — ingen odds slår markedets fair pris med margin. Da er riktig svar å ikke spille.</p>
+  {% elif sections %}
+  <p class="empty">Ingen kanter akkurat nå — ingen odds slår markedets fair pris med margin. Da er riktig svar å ikke spille. Tipsene står likevel under.</p>
   {% else %}
   <p class="empty">Ingen odds hentet ennå — trykk «Hent odds &amp; regn».</p>
   {% endif %}
 </div>
 
 <div class="card">
-  <h2>Alle turneringer og kamper ({{ n_matches }})</h2>
-  {% for t in tournaments %}
-    <h3>{{ t.name }} <span class="pill">{{ t.tour }}</span><span class="pill">{{ t.surface }}</span></h3>
-    <table><tr><th>Tid</th><th>Kamp</th><th class="num">NT</th><th class="num">Pinnacle</th>
-      <th class="num">Modell-P</th><th class="num">Marked-P</th><th class="num">Beste EV</th><th>Spill</th></tr>
-    {% for m in t.matches %}<tr>
-      <td class="muted num">{{ m.time }}</td>
-      <td>{{ m.label }}{% if m.kind == 'double' %}<span class="pill d">Double</span>{% endif %}</td>
-      <td class="num">{{ m.odds_str.get('nt', '–') }}</td>
-      <td class="num">{{ m.odds_str.get('pinnacle', '–') }}</td>
-      <td class="num">{{ m.p_str }}</td>
-      <td class="num">{{ m.mkt_str }}</td>
-      <td class="num {{ m.best_cls }}">{{ m.best_str or '–' }}</td>
-      <td>{% if m.bet_str %}<span class="betline">✔ {{ m.bet_str }}</span>{% endif %}</td>
-    </tr>{% endfor %}
-    </table>
+  <h2>Kamper og tips ({{ n_matches }})</h2>
+  <p class="muted" style="margin:0 0 10px;font-size:13px">Tips = maskinens antagelse om vinner, uansett om oddsen er verdt å spille. ~ betyr anslag fra markedet (modellen kjenner ikke spillerne / double).</p>
+  {% for sec in sections %}
+    <details {{ 'open' if sec.open }}>
+      <summary>{{ sec.title }} <span class="muted">({{ sec.n }} kamper)</span></summary>
+      {% for t in sec.tournaments %}
+      <h3>{{ t.name }} <span class="pill">{{ t.tour }}</span><span class="pill">{{ t.surface }}</span></h3>
+      <table><tr><th>Tid</th><th>Kamp</th><th>Tips</th><th class="num">NT</th><th class="num">Pinnacle</th><th>Verdi</th></tr>
+      {% for m in t.matches %}<tr>
+        <td class="muted num">{{ m.time }}</td>
+        <td>{% if m.tip_side == 'a' %}<b>{{ m.name_a }}</b> – <span class="muted">{{ m.name_b }}</span>
+            {% else %}<span class="muted">{{ m.name_a }}</span> – <b>{{ m.name_b }}</b>{% endif %}
+            {% if m.kind == 'double' %}<span class="pill d">Double</span>{% endif %}</td>
+        <td class="num"><b>{{ m.tip_name }}</b> {{ m.tip_p }}</td>
+        <td class="num">{{ m.odds_str.get('nt', '–') }}</td>
+        <td class="num">{{ m.odds_str.get('pinnacle', '–') }}</td>
+        <td>{% if m.bet_str %}<span class="betline">✔ {{ m.bet_str }}</span>
+            {% elif m.value_str %}<span class="{{ m.value_cls }}">{{ m.value_str }}</span>
+            {% else %}<span class="muted">–</span>{% endif %}</td>
+      </tr>{% endfor %}
+      </table>
+      {% endfor %}
+    </details>
   {% else %}
     <p class="empty">Ingen kamper i dag ennå — trykk «Hent odds &amp; regn».</p>
   {% endfor %}
@@ -247,13 +279,13 @@ def _dashboard_context():
     entries = nt_odds.load_slip()
     df = ev_engine.evaluate_slip(entries, config.DEFAULT_BANKROLL) if entries else pd.DataFrame()
     bets = df[df["bet"]].to_dict("records") if not df.empty else []
-    tournaments = build_overview(entries, df) if entries else []
+    sections = build_overview(entries, df) if entries else []
     log = track.load_log()
     return {
         "today": date_cls.today().isoformat(),
         "bets": bets,
-        "tournaments": tournaments,
-        "n_matches": sum(len(t["matches"]) for t in tournaments),
+        "sections": sections,
+        "n_matches": sum(s["n"] for s in sections),
         "stats": track.compute_stats(log),
         "open_bets": [r for r in log if r["status"] == "pending"],
         "book_labels": config.BOOK_LABELS,
