@@ -249,6 +249,25 @@ Vedlikehold: `python main.py setup` bygger alt på nytt + validering. Kalibrator
   brukes). Track-loggen får book. UI-knapp heter «Hent odds & regn».
 - 64 tester grønne (nye: test_odds_sources.py + sentiment-/markedsvakt-tester).
 
+## UI-ombygging + full dekning (2026-07-07 kveld, etter Leifs tilbakemelding)
+Leif: UI meningsløst — vil ha ALT (turneringer, damer, double) nedover siden,
+ikke bankroll-felt, ikke NT-vindu som popper opp. Gjort:
+- **Ingen bankroll:** innsatser regnes og vises PER 1000 KR bankroll
+  (config.DEFAULT_BANKROLL=1000). Bankroll-felt/-rute/ui_state fjernet.
+- **Full oversikt:** UI viser alle turneringer gruppert nedover med alle
+  kamper (tid, NT-odds, Pinnacle-odds, modell-P, marked-P, beste EV, evt.
+  SPILL-linje). Samme kamp hos flere bøker flettes til én rad via
+  `ev_engine.match_key_of` (id-par, ellers normaliserte navn); odds
+  orienteres riktig ved byttet rekkefølge. `ui.build_overview()`.
+- **Double og damer med:** parse_ws_frames og parse_pinnacle merker
+  `kind` (single/double) i stedet for å filtrere; evaluate_slip priser kun
+  single (Elo), double vises med odds. Challenger/ITF vises nå også
+  (UTR/exhibition ikke); vaktene hindrer anbefaling der modellen er blank.
+- **Usynlig NT-henting:** headless=True er PÅVIST å virke mot NT (2 kamper
+  hentet live). Standard nå; NT_HEADFUL=1 gir synlig vindu ved feilsøking.
+- make_entry har `kind` og `start` (ISO); df har tournament/start/match_key.
+- 66 tester grønne. Live: 155 Pinnacle + 2 NT, 41 turneringer, 6 double.
+
 ## Gjennomgang 2026-07-07 (forbedringer)
 - **Sikkerhetsvakt i ev_engine:** kamper med uløst spiller-id (P≈0.5 fra
   default-rating) anbefales ALDRI — de ga falske kanter på høye odds. Ny

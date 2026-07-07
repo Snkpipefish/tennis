@@ -41,10 +41,10 @@ _HEADERS = {
     "Accept": "application/json",
 }
 
-# Ligaer modellen ikke dekker (Sackmann = hovedtour). Ukjent-spiller-vakten i
-# ev_engine fanger det meste, men etternavns-kollisjoner kan feilkoble — så
-# lavere nivåer filtreres bort allerede her.
-_SKIP_LEAGUE = re.compile(r"challenger|itf|utr|exhibition|double", re.I)
+# Rene visnings-ligaer (exhibition/UTR) holdes utenfor; alt annet vises i
+# oversikten. Modellen dekker bare hovedtour-single — ukjent-spiller-vakten og
+# markeds-vakten i ev_engine sørger for at lavere nivåer aldri anbefales.
+_SKIP_LEAGUE = re.compile(r"utr|exhibition", re.I)
 
 
 def american_to_decimal(price: float) -> float:
@@ -53,14 +53,18 @@ def american_to_decimal(price: float) -> float:
     return round(1.0 + (p / 100.0 if p > 0 else 100.0 / abs(p)), 3)
 
 
-def _tour_from_league(name: str) -> str | None:
+def _classify_league(name: str) -> tuple[str, str] | None:
+    """Liganavn -> (tour, kind), eller None for ligaer vi ikke viser."""
     if _SKIP_LEAGUE.search(name):
         return None
     low = name.lower()
-    if low.startswith("wta") or "wta" in low:
-        return "wta"
-    if low.startswith("atp") or "atp" in low:
-        return "atp"
+    kind = "double" if "double" in low else "single"
+    if "wta" in low or "women" in low or "girls" in low:
+        return "wta", kind
+    if "atp" in low or re.search(r"\bmen\b", low) or "boys" in low:
+        return "atp", kind
+    if "itf" in low or "challenger" in low:
+        return "atp", kind  # kjønn ukjent -> antas herrer; kun visning uansett
     return None
 
 
@@ -89,9 +93,10 @@ def parse_pinnacle(matchups: list, markets: list) -> list[dict]:
         if mu.get("type") != "matchup" or mu.get("parent") or mu.get("isLive"):
             continue
         league = (mu.get("league") or {}).get("name", "")
-        tour = _tour_from_league(league)
-        if tour is None:
+        cls = _classify_league(league)
+        if cls is None:
             continue
+        tour, kind = cls
         mk = prices.get(mu.get("id"))
         if mk is None:
             continue
@@ -103,8 +108,10 @@ def parse_pinnacle(matchups: list, markets: list) -> list[dict]:
         side = {p.get("designation"): p.get("price") for p in mk.get("prices", [])}
         if not home or not away or side.get("home") is None or side.get("away") is None:
             continue
+        if "/" in home or "/" in away:
+            kind = "double"
         out.append({
-            "home": home, "away": away, "tour": tour,
+            "home": home, "away": away, "tour": tour, "kind": kind,
             "tournament": league, "start": mu.get("startTime"),
             "odds_home": american_to_decimal(side["home"]),
             "odds_away": american_to_decimal(side["away"]),
@@ -117,14 +124,20 @@ def events_to_entries(events: list[dict], *, book: str, index: PlayerIndex,
     """Felles: rå eventer -> slip-entries med spiller-id, underlag og bok."""
     entries: list[dict] = []
     for ev in events:
-        a_id, a_name = index.resolve_label(ev["home"])
-        b_id, b_name = index.resolve_label(ev["away"])
+        kind = ev.get("kind", "single")
+        if kind == "double":
+            a_id = b_id = None
+            a_name, b_name = ev["home"], ev["away"]
+        else:
+            a_id, a_name = index.resolve_label(ev["home"])
+            b_id, b_name = index.resolve_label(ev["away"])
         when = pd.to_datetime(ev.get("start"), errors="coerce", utc=True)
         when = when.date() if pd.notna(when) else (day or date_cls.today())
         entries.append(make_entry(
             tour=ev.get("tour") or "atp",
             surface=infer_surface(ev["tournament"], when, lookup),
             tournament=ev["tournament"], source=book, book=book,
+            kind=kind, start=ev.get("start"),
             player_a_id=a_id, player_a_name=ev["home"] if a_id is None else a_name,
             nt_odds_a=ev["odds_home"],
             player_b_id=b_id, player_b_name=ev["away"] if b_id is None else b_name,

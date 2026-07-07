@@ -117,7 +117,7 @@ def test_parse_ws_frames() -> None:
     assert m["tournament"].startswith("Wimbledon")
 
 
-def test_parse_ws_frames_filtrerer_double() -> None:
+def test_parse_ws_frames_merker_double() -> None:
     inner = {"version": 1, "data": [{"change": {"events": [{
         "idfoevent": "9.1", "sporttypename": "Tennis",
         "name": "Krawietz K / Puetz T - Doumbia S / Reboul F",
@@ -128,7 +128,8 @@ def test_parse_ws_frames_filtrerer_double() -> None:
         ]}],
     }]}}]}
     frame = "a[" + json.dumps(json.dumps(inner)) + "]"
-    assert parse_ws_frames([frame]) == []  # double hoppes over
+    ms = parse_ws_frames([frame])
+    assert len(ms) == 1 and ms[0]["kind"] == "double"  # med, men merket
 
 
 def test_fetch_nt_odds_med_mocket_harvest(index, tmp_path, monkeypatch) -> None:

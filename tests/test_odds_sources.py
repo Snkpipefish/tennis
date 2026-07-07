@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.odds_sources import _tour_from_league, american_to_decimal, parse_pinnacle
+from src.odds_sources import _classify_league, american_to_decimal, parse_pinnacle
 
 
 def test_american_to_decimal() -> None:
@@ -13,13 +13,15 @@ def test_american_to_decimal() -> None:
     assert american_to_decimal(-100) == pytest.approx(2.0)
 
 
-def test_tour_from_league_filtrerer_lavere_nivaa() -> None:
-    assert _tour_from_league("ATP Wimbledon - QF") == "atp"
-    assert _tour_from_league("WTA Wimbledon") == "wta"
-    assert _tour_from_league("ATP Challenger Liege - R1") is None
-    assert _tour_from_league("ITF Men Bastia-Lucciana - R1") is None
-    assert _tour_from_league("ATP Wimbledon Doubles") is None
-    assert _tour_from_league("UTR Pro Waco") is None
+def test_classify_league() -> None:
+    assert _classify_league("ATP Wimbledon - QF") == ("atp", "single")
+    assert _classify_league("WTA Wimbledon") == ("wta", "single")
+    assert _classify_league("ATP Wimbledon Doubles") == ("atp", "double")
+    assert _classify_league("WTA Wimbledon Doubles") == ("wta", "double")
+    # Lavere nivåer VISES nå (vaktene hindrer anbefaling), men UTR/exhibition ikke.
+    assert _classify_league("ATP Challenger Liege - R1") == ("atp", "single")
+    assert _classify_league("ITF Women Bucharest - R1") == ("wta", "single")
+    assert _classify_league("UTR Pro Waco") is None
 
 
 def _matchup(mid: int, league: str, home: str, away: str, **kw) -> dict:
@@ -48,7 +50,7 @@ def _market(mid: int, home_price: int, away_price: int, **kw) -> dict:
 def test_parse_pinnacle() -> None:
     matchups = [
         _matchup(1, "ATP Wimbledon - QF", "Jannik Sinner", "Novak Djokovic"),
-        _matchup(2, "ATP Challenger Liege - R1", "A", "B"),          # lavere nivå -> bort
+        _matchup(2, "UTR Pro Waco", "A", "B"),                       # exhibition-nivå -> bort
         _matchup(3, "WTA Wimbledon", "X", "Y", is_live=True),        # live -> bort
         _matchup(4, "WTA Wimbledon", "P", "Q", start="2020-01-01T12:00:00Z"),  # startet -> bort
         _matchup(5, "ATP Wimbledon - QF", "C", "D"),                 # mangler marked -> bort
@@ -66,6 +68,14 @@ def test_parse_pinnacle() -> None:
     assert ev["tour"] == "atp"
     assert ev["odds_home"] == pytest.approx(1.333, abs=1e-3)
     assert ev["odds_away"] == pytest.approx(3.5)
+    assert ev["kind"] == "single"
+
+
+def test_parse_pinnacle_double_merkes() -> None:
+    matchups = [_matchup(1, "ATP Wimbledon Doubles", "A / B", "C / D")]
+    markets = [_market(1, -110, -110)]
+    evs = parse_pinnacle(matchups, markets)
+    assert len(evs) == 1 and evs[0]["kind"] == "double"
 
 
 def test_parse_pinnacle_hopper_over_stengt_marked() -> None:

@@ -44,6 +44,15 @@ def _match_key(e: dict) -> tuple[int, int] | None:
     return (min(int(a), int(b)), max(int(a), int(b)))
 
 
+def match_key_of(e: dict) -> str:
+    """Stabil nøkkel for samme kamp på tvers av bøker (id-par, ellers navn)."""
+    key = _match_key(e)
+    if key is not None:
+        return f"id:{key[0]}-{key[1]}"
+    from .nt_odds import _norm
+    return "nm:" + "|".join(sorted([_norm(e["player_a_name"]), _norm(e["player_b_name"])]))
+
+
 def market_anchor(entries: list[dict]) -> dict[tuple[int, int], float]:
     """Markedssentiment: de-vigget Pinnacle-P per kamp.
 
@@ -81,6 +90,8 @@ def evaluate_slip(entries: list[dict], bankroll: float,
     bundle = bundle or load_calibrator()
     base = bundle["base_variant"]
 
+    # Double har ingen Elo — de vises i oversikten (UI) men prises ikke her.
+    entries = [e for e in entries if e.get("kind", "single") == "single"]
     anchor = market_anchor(entries)
     w = config.MARKET_BLEND_WEIGHT
 
@@ -123,6 +134,9 @@ def evaluate_slip(entries: list[dict], bankroll: float,
                 "book": e.get("book", "nt"),
                 "tour": e["tour"],
                 "surface": e["surface"],
+                "tournament": e.get("tournament", ""),
+                "start": e.get("start"),
+                "match_key": match_key_of(e),
                 "match": f"{e['player_a_name']} – {e['player_b_name']}",
                 "side": side,
                 "bet_on": name,
@@ -137,6 +151,11 @@ def evaluate_slip(entries: list[dict], bankroll: float,
                 "stake_kr": round(quarter_kelly_stake(p_use, odds, bankroll), 1) if bet else 0.0,
                 "bet": bet,
             })
+    if not rows:
+        return pd.DataFrame(columns=[
+            "book", "tour", "surface", "tournament", "start", "match_key", "match",
+            "side", "bet_on", "opponent", "model_p", "elo_p", "market_p",
+            "nt_odds", "implied_p", "ev", "known", "stake_kr", "bet"])
     df = pd.DataFrame(rows)
     return df.sort_values("ev", ascending=False).reset_index(drop=True)
 
@@ -177,7 +196,7 @@ def write_report(df: pd.DataFrame, bankroll: float, day: date_cls | None = None)
     L: list[str] = []
     L.append(f"# Dagens veddemål — {day.isoformat()}")
     L.append("")
-    L.append(f"_Bankroll: {bankroll:,.0f} kr. EV-terskel: {EV_THRESHOLD*100:.0f} %. "
+    L.append(f"_Innsatser per {bankroll:,.0f} kr bankroll — skaler selv. EV-terskel: {EV_THRESHOLD*100:.0f} %. "
              f"Innsats: {KELLY_FRACTION:g}-Kelly (maks {MAX_STAKE_FRACTION*100:.0f} % av bankroll). "
              f"P = {config.MARKET_BLEND_WEIGHT*100:.0f} % markedssentiment (de-vigget Pinnacle) "
              f"+ {100-config.MARKET_BLEND_WEIGHT*100:.0f} % kalibrert Elo der markedet har kampen; ellers ren Elo. "

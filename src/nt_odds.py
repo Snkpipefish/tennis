@@ -244,11 +244,14 @@ def slip_path(day: date_cls | None = None) -> Path:
 def make_entry(*, tour: str, surface: str,
                player_a_id: int | None, player_a_name: str, nt_odds_a: float,
                player_b_id: int | None, player_b_name: str, nt_odds_b: float,
-               source: str = "kambi", tournament: str = "", book: str = "nt") -> dict:
+               source: str = "kambi", tournament: str = "", book: str = "nt",
+               kind: str = "single", start: str | None = None) -> dict:
     return {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "source": source,
         "book": book,
+        "kind": kind,          # single | double (double har ingen modell-P)
+        "start": start,        # ISO-starttid fra boka, for turneringsplanen
         "tour": tour,
         "surface": surface,
         "tournament": tournament,
@@ -379,11 +382,11 @@ def parse_ws_frames(frames: list[str]) -> list[dict]:
 
     out: list[dict] = []
     for ev in events.values():
-        # Kun single. Double har "/" i navnet (par) — hopp over (Elo er single).
+        # Double (par med "/" i navnet) tas MED, merket kind="double" —
+        # de vises i oversikten men får ingen modell-P (Elo er single).
         nm = ev.get("name", "")
         tn = (ev.get("tournamentname") or "").lower()
-        if "/" in nm or "double" in tn or "dobbel" in tn:
-            continue
+        is_double = "/" in nm or "double" in tn or "dobbel" in tn
         win = next((m for m in ev.get("markets", [])
                     if (m.get("name") or "").strip().lower() == "vinner"
                     and len(m.get("selections", [])) == 2), None)
@@ -391,7 +394,7 @@ def parse_ws_frames(frames: list[str]) -> list[dict]:
             continue
         sels = sorted(win["selections"], key=lambda s: str(s.get("competitornumber", "9")))
         if any("/" in (s.get("name") or "") for s in sels):
-            continue
+            is_double = True
         dh, da = _frac_to_decimal(sels[0]), _frac_to_decimal(sels[1])
         if not dh or not da:
             continue
@@ -401,6 +404,7 @@ def parse_ws_frames(frames: list[str]) -> list[dict]:
             "tournament": ev.get("tournamentname", ""),
             "start": ev.get("tsstart"),
             "tour": _nt_tour(ev),
+            "kind": "double" if is_double else "single",
         })
     return out
 
@@ -456,7 +460,7 @@ def _click_tennis_and_tournaments(page, debug: bool = False) -> object:
     return fr
 
 
-def harvest_nt_odds(headless: bool = False, timeout: int = 60000, attempts: int = 8, debug: bool = False) -> list[str]:
+def harvest_nt_odds(headless: bool = True, timeout: int = 60000, attempts: int = 8, debug: bool = False) -> list[str]:
     """Kjør ekte nettleser mot NT-sport, naviger til tennis, og samle WS-rammer.
 
     Selv-helbredende: prøver gjentatte ganger (direkte tennis-URL + klikk i
@@ -534,8 +538,11 @@ def harvest_nt_odds(headless: bool = False, timeout: int = 60000, attempts: int 
 
 def fetch_nt_odds(day: date_cls | None = None, *, matches: pd.DataFrame | None = None,
                   index: PlayerIndex | None = None, save: bool = True, verbose: bool = True,
-                  headless: bool = False) -> list[dict]:
-    """Hent dagens NT-tenniskamper via ekte nettleser (WS), koble spillere, lagre slip."""
+                  headless: bool | None = None) -> list[dict]:
+    """Hent dagens NT-tenniskamper via nettleser (WS), koble spillere, lagre slip.
+
+    Kjører headless (usynlig) som standard — påvist å virke mot NT.
+    Sett NT_HEADFUL=1 for synlig vindu ved feilsøking."""
     import os as _os
     import subprocess as _sp
     import sys as _sys
@@ -543,6 +550,8 @@ def fetch_nt_odds(day: date_cls | None = None, *, matches: pd.DataFrame | None =
     from playwright.sync_api import Error as PWError
 
     _dbg = bool(_os.environ.get("NT_DEBUG"))
+    if headless is None:
+        headless = not bool(_os.environ.get("NT_HEADFUL"))
 
     def _harvest() -> list[str]:
         try:
@@ -579,14 +588,19 @@ def fetch_nt_odds(day: date_cls | None = None, *, matches: pd.DataFrame | None =
 
     entries: list[dict] = []
     for m in matches_out:
-        a_id, a_name = index.resolve_label(nt_name_to_query(m["home"]))
-        b_id, b_name = index.resolve_label(nt_name_to_query(m["away"]))
+        kind = m.get("kind", "single")
+        if kind == "double":
+            a_id = b_id = None
+            a_name, b_name = m["home"], m["away"]
+        else:
+            a_id, a_name = index.resolve_label(nt_name_to_query(m["home"]))
+            b_id, b_name = index.resolve_label(nt_name_to_query(m["away"]))
         when = pd.to_datetime(m.get("start"), errors="coerce", utc=True)
         when = when.date() if pd.notna(when) else (day or date_cls.today())
         entries.append(make_entry(
             tour=m.get("tour") or "atp",
             surface=infer_surface(m["tournament"], when, lookup),
-            tournament=m["tournament"],
+            tournament=m["tournament"], kind=kind, start=m.get("start"),
             player_a_id=a_id, player_a_name=m["home"] if a_id is None else a_name, nt_odds_a=m["odds_home"],
             player_b_id=b_id, player_b_name=m["away"] if b_id is None else b_name, nt_odds_b=m["odds_away"],
         ))

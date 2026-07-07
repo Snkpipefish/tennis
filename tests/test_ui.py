@@ -8,9 +8,9 @@ from src import ui
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    # Isoler bankroll-state og track-logg til tmp.
-    monkeypatch.setattr(ui, "_STATE", tmp_path / "ui_state.json")
+    # Isoler track-logg og slip til tmp.
     monkeypatch.setattr(ui.track.config, "TRACK_LOG", tmp_path / "track.json")
+    monkeypatch.setattr(ui.nt_odds.config, "ODDS_DIR", tmp_path)
     ui.app.config.update(TESTING=True)
     return ui.app.test_client()
 
@@ -20,19 +20,10 @@ def test_index_rendrer(client) -> None:
     assert r.status_code == 200
     html = r.data.decode()
     assert "Tennis +EV" in html
-    assert "Dagens anbefalte" in html
+    assert "Anbefalte spill" in html
+    assert "Alle turneringer og kamper" in html
     assert "Track record" in html
-
-
-def test_bankroll_lagres(client) -> None:
-    r = client.post("/bankroll", data={"bankroll": "5000"}, follow_redirects=True)
-    assert r.status_code == 200
-    assert ui.get_bankroll() == 5000.0
-
-
-def test_bankroll_ugyldig_flasher_feil(client) -> None:
-    r = client.post("/bankroll", data={"bankroll": "tull"}, follow_redirects=True)
-    assert "Ugyldig" in r.data.decode()
+    assert "bankroll" not in html.lower().replace("kr bankroll", "")  # ingen bankroll-felt
 
 
 def test_fetch_haandterer_feil(client, monkeypatch) -> None:
@@ -58,3 +49,43 @@ def test_index_har_hent_knapp(client) -> None:
     html = client.get("/").data.decode()
     assert "Hent odds" in html                 # henteknappen finnes
     assert "/fetch" in html
+
+
+def test_oversikt_grupperer_og_viser_double(client, monkeypatch) -> None:
+    from src.nt_odds import make_entry, save_slip
+
+    single = make_entry(tour="atp", surface="Grass", book="nt", kind="single",
+                        tournament="Wimbledon Men Singles - ATP",
+                        start="2030-07-07T18:00:00Z",
+                        player_a_id=1, player_a_name="Sterk", nt_odds_a=1.5,
+                        player_b_id=2, player_b_name="Svak", nt_odds_b=2.6)
+    double = make_entry(tour="atp", surface="Grass", book="nt", kind="double",
+                        tournament="Wimbledon Men Doubles - ATP",
+                        player_a_id=None, player_a_name="A / B", nt_odds_a=1.8,
+                        player_b_id=None, player_b_name="C / D", nt_odds_b=2.0)
+    save_slip([single, double], replace=True)
+    html = client.get("/").data.decode()
+    assert "Wimbledon Men Singles - ATP" in html
+    assert "Wimbledon Men Doubles - ATP" in html
+    assert "A / B – C / D" in html
+    assert "Double" in html
+
+
+def test_build_overview_slaar_sammen_boeker() -> None:
+    import pandas as pd
+
+    from src.nt_odds import make_entry
+
+    nt = make_entry(tour="atp", surface="Grass", book="nt",
+                    tournament="Wimbledon", start="2030-07-07T18:00:00Z",
+                    player_a_id=1, player_a_name="Sterk", nt_odds_a=1.5,
+                    player_b_id=2, player_b_name="Svak", nt_odds_b=2.6)
+    pinn = make_entry(tour="atp", surface="Grass", book="pinnacle",
+                      tournament="ATP Wimbledon",
+                      player_a_id=2, player_a_name="Svak", nt_odds_a=2.8,  # motsatt rekkefølge
+                      player_b_id=1, player_b_name="Sterk", nt_odds_b=1.45)
+    ts = ui.build_overview([nt, pinn], pd.DataFrame())
+    assert len(ts) == 1                       # samme kamp -> én rad
+    m = ts[0]["matches"][0]
+    assert m["odds_str"]["nt"] == "1.50 / 2.60"
+    assert m["odds_str"]["pinnacle"] == "1.45 / 2.80"  # snudd riktig vei

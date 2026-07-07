@@ -63,6 +63,10 @@ MARKET_BLEND_WEIGHT = 0.7
 # Pinnacle vises som referanse men er sjelden spillbar fra Norge.
 BOOK_LABELS = {"nt": "Norsk Tipping", "pinnacle": "Pinnacle"}
 
+# Innsatser regnes per 1000 kr bankroll (vises slik i UI/rapport) — UI-et
+# trenger dermed aldri vite den faktiske bankrollen. Skaler selv.
+DEFAULT_BANKROLL = 1000.0
+
 # Årsspenn iht. PLAN.md ("2005-nå"). Speilet dekker t.o.m. 2024.
 YEAR_START = 2005
 YEAR_END = 2024
