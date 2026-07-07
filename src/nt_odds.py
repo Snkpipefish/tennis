@@ -244,10 +244,11 @@ def slip_path(day: date_cls | None = None) -> Path:
 def make_entry(*, tour: str, surface: str,
                player_a_id: int | None, player_a_name: str, nt_odds_a: float,
                player_b_id: int | None, player_b_name: str, nt_odds_b: float,
-               source: str = "kambi", tournament: str = "") -> dict:
+               source: str = "kambi", tournament: str = "", book: str = "nt") -> dict:
     return {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "source": source,
+        "book": book,
         "tour": tour,
         "surface": surface,
         "tournament": tournament,

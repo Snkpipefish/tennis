@@ -62,6 +62,7 @@ def log_bets(day: date_cls | None = None, bankroll: float = 1000.0) -> list[dict
         records.append({
             "bet_id": _next_id(records),
             "placed_date": day.isoformat(),
+            "book": getattr(r, "book", "nt"),
             "tour": r.tour,
             "surface": r.surface,
             "match": r.match,
@@ -182,10 +183,11 @@ def write_report(records: list[dict]) -> None:
     L.append("")
     pend = [r for r in records if r["status"] == "pending"]
     if pend:
-        L.append("| id | Dato | Kamp | Spill på | Modell-P | NT-odds | Innsats kr |")
-        L.append("|---|---|---|---|---|---|---|")
+        L.append("| id | Dato | Bok | Kamp | Spill på | Modell-P | Odds | Innsats kr |")
+        L.append("|---|---|---|---|---|---|---|---|")
         for r in pend:
-            L.append(f"| {r['bet_id']} | {r['placed_date']} | {r['match']} | {r['bet_on']} | "
+            book = config.BOOK_LABELS.get(r.get("book", "nt"), r.get("book", "nt"))
+            L.append(f"| {r['bet_id']} | {r['placed_date']} | {book} | {r['match']} | {r['bet_on']} | "
                      f"{r['model_p']*100:.1f} % | {r['nt_odds']:.2f} | {r['stake_kr']:.0f} |")
     else:
         L.append("_Ingen åpne veddemål._")

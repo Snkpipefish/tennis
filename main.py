@@ -1,9 +1,10 @@
 """main.py — orkestrering av hele tennis-EV-maskinen.
 
-Daglig flyt (PLAN.md): oppdater data -> oppdater Elo -> les NT-odds -> today_bets.md
+Daglig flyt (PLAN.md): oppdater data -> oppdater Elo -> hent odds -> today_bets.md
 
-Leif gjør ingenting teknisk: odds hentes AUTOMATISK fra Norsk Tipping (Kambi).
-Ingen manuell inntasting.
+Leif gjør ingenting teknisk: odds hentes AUTOMATISK fra Pinnacle (åpent API,
+gir også markedssentiment) og Norsk Tipping (nettleser). Ingen manuell
+inntasting.
 
 Kommandoer:
     python main.py ui                 Start lokal web-UI (http://127.0.0.1:5057)
@@ -53,7 +54,7 @@ def _ensure_venv() -> None:
 
 _ensure_venv()
 
-from src import calibrate, elo, ev_engine, ingest, market_check, nt_odds, track  # noqa: E402
+from src import calibrate, elo, ev_engine, ingest, market_check, nt_odds, odds_sources, track  # noqa: E402
 
 
 def _bankroll(argv: list[str], default: float = 1000.0) -> float:
@@ -77,9 +78,9 @@ def cmd_daily(argv: list[str]) -> None:
     bankroll = _bankroll(argv)
     print("[1/4] Oppdaterer data ..."); matches = ingest.build_matches(verbose=False)
     print("[2/4] Oppdaterer Elo ...");  elo.build_elo(matches, verbose=False)
-    print("[3/4] Henter NT-tennisodds i nettleser ...")
+    print("[3/4] Henter odds (Pinnacle + NT) ...")
     try:
-        nt_odds.fetch_nt_odds(matches=matches)
+        odds_sources.fetch_all_odds(matches=matches)
     except Exception as exc:
         print(f"  Klarte ikke hente odds: {exc}")
         print("  Bruker allerede lagret slip for i dag hvis den finnes.")
@@ -94,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "setup":
         cmd_setup()
     elif cmd == "fetch":          # hent odds uten å regne (diagnostikk)
-        nt_odds.fetch_nt_odds()
+        odds_sources.fetch_all_odds()
     elif cmd == "manual":         # nødløsning hvis auto-henting svikter
         nt_odds.interactive()
     elif cmd == "daily":

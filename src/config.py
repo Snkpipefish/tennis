@@ -47,6 +47,22 @@ KAMBI_BASE = "https://eu-offering-api.kambicdn.com/offering/v2018/ntno"
 KAMBI_TENNIS_LISTVIEW = KAMBI_BASE + "/listView/tennis.json"
 KAMBI_PARAMS = {"lang": "en_GB", "market": "NO", "client_id": "2", "channel_id": "1"}
 
+# Pinnacle — verdens skarpeste bok — har et åpent gjeste-API (ingen konto).
+# Nøkkelen er den offentlige gjestenøkkelen pinnacle.com selv bruker i frontend.
+# Brukes både som odds-kilde og som MARKEDSSENTIMENT-anker (de-vigget P).
+PINNACLE_API = "https://guest.api.arcadia.pinnacle.com/0.1"
+PINNACLE_GUEST_KEY = "CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R"
+PINNACLE_TENNIS_SPORT_ID = 33
+
+# Vekt på markedets de-viggede P vs modellens kalibrerte P når begge finnes.
+# Markedet er skarpere (Modul 4: Pinnacle Brier 0.200 vs modell 0.217) og
+# priser inn skader/form/nyheter som Elo ikke ser — derfor mest vekt der.
+MARKET_BLEND_WEIGHT = 0.7
+
+# Bøker Leif faktisk kan legge veddemål hos (vis EV, anbefal spill).
+# Pinnacle vises som referanse men er sjelden spillbar fra Norge.
+BOOK_LABELS = {"nt": "Norsk Tipping", "pinnacle": "Pinnacle"}
+
 # Årsspenn iht. PLAN.md ("2005-nå"). Speilet dekker t.o.m. 2024.
 YEAR_START = 2005
 YEAR_END = 2024

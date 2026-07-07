@@ -81,5 +81,65 @@ def test_ukjent_spiller_gir_aldri_veddemaal() -> None:
     assert not df["known"].any()
 
 
+def test_markedssentiment_demper_falsk_kant() -> None:
+    # Modellen tror 0.76 på spiller 1, men markedet (Pinnacle) sier 50/50.
+    # Blandet P = 0.7*0.5 + 0.3*0.76 ≈ 0.578 -> EV på NT-odds 1.5 blir negativ,
+    # så den falske kanten forsvinner.
+    nt = make_entry(tour="atp", surface="Hard", book="nt",
+                    player_a_id=1, player_a_name="Sterk", nt_odds_a=1.5,
+                    player_b_id=2, player_b_name="Svak", nt_odds_b=2.6)
+    pinn = make_entry(tour="atp", surface="Hard", book="pinnacle",
+                      player_a_id=1, player_a_name="Sterk", nt_odds_a=1.9,
+                      player_b_id=2, player_b_name="Svak", nt_odds_b=1.9)
+    df = evaluate_slip([nt, pinn], bankroll=1000, model=_fake_model(), bundle=_identity_bundle())
+    nt_a = df[(df["book"] == "nt") & (df["side"] == "A")].iloc[0]
+    assert nt_a["market_p"] == pytest.approx(0.5)
+    assert nt_a["elo_p"] == pytest.approx(0.7597, abs=1e-3)
+    assert nt_a["model_p"] == pytest.approx(0.7 * 0.5 + 0.3 * 0.7597, abs=1e-3)
+    assert bool(nt_a["bet"]) is False  # ren modell ville veddet (jf. test over)
+
+
+def test_markedssentiment_haandterer_byttet_rekkefolge() -> None:
+    # Pinnacle lister samme kamp med spillerne i motsatt rekkefølge —
+    # ankeret skal likevel kobles riktig via (min_id, max_id).
+    nt = make_entry(tour="atp", surface="Hard", book="nt",
+                    player_a_id=1, player_a_name="Sterk", nt_odds_a=1.5,
+                    player_b_id=2, player_b_name="Svak", nt_odds_b=2.6)
+    pinn = make_entry(tour="atp", surface="Hard", book="pinnacle",
+                      player_a_id=2, player_a_name="Svak", nt_odds_a=4.0,
+                      player_b_id=1, player_b_name="Sterk", nt_odds_b=1.25)
+    df = evaluate_slip([nt, pinn], bankroll=1000, model=_fake_model(), bundle=_identity_bundle())
+    nt_a = df[(df["book"] == "nt") & (df["side"] == "A")].iloc[0]
+    # De-vigget P(Sterk) = (1/1.25)/(1/1.25 + 1/4.0) = 0.7619
+    assert nt_a["market_p"] == pytest.approx(0.7619, abs=1e-3)
+
+
+def test_uten_anker_brukes_ren_modell() -> None:
+    nt = make_entry(tour="atp", surface="Hard", book="nt",
+                    player_a_id=1, player_a_name="Sterk", nt_odds_a=1.5,
+                    player_b_id=2, player_b_name="Svak", nt_odds_b=2.6)
+    df = evaluate_slip([nt], bankroll=1000, model=_fake_model(), bundle=_identity_bundle())
+    a = df[df["side"] == "A"].iloc[0]
+    assert a["model_p"] == pytest.approx(a["elo_p"])
+    assert bool(a["bet"]) is True
+
+
+def test_vedd_aldri_mot_markedet() -> None:
+    # Marked sier 50/50 (Pinnacle 1.9/1.9). NT-odds 1.9 slår IKKE de-vigget
+    # pris (0.5*1.9-1 < 0) -> ingen vedd selv om blandet EV > terskel.
+    # NT-odds 2.2 slår den (0.5*2.2-1 = +10%) -> vedd.
+    pinn = make_entry(tour="atp", surface="Hard", book="pinnacle",
+                      player_a_id=1, player_a_name="Sterk", nt_odds_a=1.9,
+                      player_b_id=2, player_b_name="Svak", nt_odds_b=1.9)
+    for nt_odds_a, expect_bet in ((1.9, False), (2.2, True)):
+        nt = make_entry(tour="atp", surface="Hard", book="nt",
+                        player_a_id=1, player_a_name="Sterk", nt_odds_a=nt_odds_a,
+                        player_b_id=2, player_b_name="Svak", nt_odds_b=2.6)
+        df = evaluate_slip([nt, pinn], bankroll=1000, model=_fake_model(), bundle=_identity_bundle())
+        a = df[(df["book"] == "nt") & (df["side"] == "A")].iloc[0]
+        assert a["ev"] > EV_THRESHOLD          # blandet EV er over terskel begge ganger
+        assert bool(a["bet"]) is expect_bet    # ... men markedet avgjør
+
+
 def test_threshold_konstant() -> None:
     assert EV_THRESHOLD == 0.05

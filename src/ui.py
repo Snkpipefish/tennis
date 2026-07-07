@@ -83,26 +83,27 @@ TEMPLATE = """
     <button class="btn sec" type="submit">Lagre</button>
   </form>
   <form method="post" action="{{ url_for('fetch') }}" class="inline">
-    <button class="btn" type="submit">Hent NT-odds &amp; regn</button></form>
+    <button class="btn" type="submit">Hent odds &amp; regn</button></form>
   <form method="post" action="{{ url_for('refresh_model') }}" class="inline">
     <button class="btn sec" type="submit">Oppdater data &amp; modell</button></form>
   <form method="post" action="{{ url_for('log') }}" class="inline">
     <button class="btn sec" type="submit">Loggfør anbefalte</button></form>
 </div>
-<p class="muted" style="margin:10px 0 0;font-size:13px">«Hent NT-odds» åpner en nettleser som henter dagens kamper fra Norsk Tipping automatisk (tar noen sekunder første gang).</p>
+<p class="muted" style="margin:10px 0 0;font-size:13px">«Hent odds» henter Pinnacle direkte (raskt) og Norsk Tipping via nettleser (tregere). Marked-P er markedets sentiment — de-viggede Pinnacle-odds — og vektes inn i P.</p>
 </div>
 
 <div class="card">
   <h2>Dagens anbefalte veddemål ({{ bets|length }})</h2>
   {% if bets %}
   <table><tr>
-    <th>Kamp</th><th>Spill på</th><th class="num">Modell-P</th><th class="num">NT-odds</th>
-    <th class="num">Implisitt-P</th><th class="num">EV%</th><th class="num">Innsats kr</th></tr>
+    <th>Kamp</th><th>Bok</th><th>Spill på</th><th class="num">P</th><th class="num">Marked-P</th>
+    <th class="num">Odds</th><th class="num">EV%</th><th class="num">Innsats kr</th></tr>
   {% for b in bets %}<tr>
-    <td>{{ b.match }}</td><td><b>{{ b.bet_on }}</b> <span class="pill">{{ b.surface }}</span></td>
+    <td>{{ b.match }}</td><td><span class="pill">{{ book_labels.get(b.book, b.book) }}</span></td>
+    <td><b>{{ b.bet_on }}</b> <span class="pill">{{ b.surface }}</span></td>
     <td class="num">{{ '%.1f'|format(b.model_p*100) }}%</td>
+    <td class="num">{{ '–' if b.market_p != b.market_p else '%.1f%%'|format(b.market_p*100) }}</td>
     <td class="num">{{ '%.2f'|format(b.nt_odds) }}</td>
-    <td class="num">{{ '%.1f'|format(b.implied_p*100) }}%</td>
     <td class="num pos">+{{ '%.1f'|format(b.ev*100) }}</td>
     <td class="num"><b>{{ '%.0f'|format(b.stake_kr) }}</b></td></tr>{% endfor %}
   </table>
@@ -129,10 +130,12 @@ TEMPLATE = """
 <div class="card">
   <h2>Åpne veddemål ({{ open_bets|length }})</h2>
   {% if open_bets %}
-  <table><tr><th>Dato</th><th>Kamp</th><th>Spill på</th><th class="num">Odds</th>
+  <table><tr><th>Dato</th><th>Bok</th><th>Kamp</th><th>Spill på</th><th class="num">Odds</th>
     <th class="num">Innsats</th><th>Utfall</th></tr>
   {% for o in open_bets %}<tr>
-    <td class="muted">{{ o.placed_date }}</td><td>{{ o.match }}</td><td>{{ o.bet_on }}</td>
+    <td class="muted">{{ o.placed_date }}</td>
+    <td><span class="pill">{{ book_labels.get(o.get('book','nt'), o.get('book','nt')) }}</span></td>
+    <td>{{ o.match }}</td><td>{{ o.bet_on }}</td>
     <td class="num">{{ '%.2f'|format(o.nt_odds) }}</td><td class="num">{{ '%.0f'|format(o.stake_kr) }}</td>
     <td>
       <form method="post" action="{{ url_for('settle') }}" class="inline">
@@ -181,6 +184,7 @@ def _dashboard_context():
         "has_slip": bool(entries),
         "stats": track.compute_stats(log),
         "open_bets": [r for r in log if r["status"] == "pending"],
+        "book_labels": config.BOOK_LABELS,
     }
 
 
@@ -202,10 +206,16 @@ def bankroll():
 @app.route("/fetch", methods=["POST"])
 def fetch():
     try:
-        entries = nt_odds.fetch_nt_odds()
-        flash(f"Hentet {len(entries)} kamper fra Norsk Tipping.")
+        from . import odds_sources
+
+        entries, warnings = odds_sources.fetch_all_odds()
+        n_by_book = {}
+        for e in entries:
+            n_by_book[e.get("book", "nt")] = n_by_book.get(e.get("book", "nt"), 0) + 1
+        summary = ", ".join(f"{n} fra {config.BOOK_LABELS.get(b, b)}" for b, n in n_by_book.items())
+        flash(f"Hentet {summary}." + (f" ({'; '.join(warnings)})" if warnings else ""))
     except Exception as exc:
-        flash(f"Kunne ikke hente odds automatisk: {exc}", "err")
+        flash(f"Kunne ikke hente odds: {exc}", "err")
     return redirect(url_for("index"))
 
 

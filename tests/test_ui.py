@@ -36,11 +36,13 @@ def test_bankroll_ugyldig_flasher_feil(client) -> None:
 
 
 def test_fetch_haandterer_feil(client, monkeypatch) -> None:
-    # Simuler IP-blokkering — UI skal vise feilmelding, ikke krasje.
+    # Simuler at ALLE kilder feiler — UI skal vise feilmelding, ikke krasje.
+    from src import odds_sources
+
     def boom(*a, **k):
         raise RuntimeError("blokkert")
 
-    monkeypatch.setattr(ui.nt_odds, "fetch_nt_odds", boom)
+    monkeypatch.setattr(odds_sources, "fetch_all_odds", boom)
     r = client.post("/fetch", follow_redirects=True)
     assert r.status_code == 200
     assert "Kunne ikke hente" in r.data.decode()
@@ -54,5 +56,5 @@ def test_settle_ukjent_id_flasher_feil(client) -> None:
 
 def test_index_har_hent_knapp(client) -> None:
     html = client.get("/").data.decode()
-    assert "Hent NT-odds" in html              # henteknappen finnes
+    assert "Hent odds" in html                 # henteknappen finnes
     assert "/fetch" in html

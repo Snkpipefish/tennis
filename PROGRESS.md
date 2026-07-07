@@ -226,6 +226,29 @@ Vedlikehold: `python main.py setup` bygger alt på nytt + validering. Kalibrator
 `calibrate.load_calibrator()` + `apply_calibrator()`. Inkrementell Elo:
 `EloModel.load()` -> prosesser nye kamper -> `.save()`.
 
+## Flere odds-kilder + markedssentiment (2026-07-07, etter Leifs ønske)
+- **Ny modul `src/odds_sources.py`:** Pinnacle guest-API
+  (guest.api.arcadia.pinnacle.com, offentlig nøkkel i config, INGEN konto)
+  virker fra hjemme-IP og gir langt flere kamper enn NT. Amerikanske odds
+  konverteres (`american_to_decimal`). Challenger/ITF/UTR/dobbel filtreres
+  (`_SKIP_LEAGUE`) — Sackmann dekker bare hovedtour. Live/påbegynte kamper
+  hoppes over. Undersøkt og forkastet: Unibet-feed (tomt skall uten sesjon),
+  Kambi-API for andre operatører (Akamai 429/400).
+- **Slip har nå `book`-felt** (nt/pinnacle); `fetch_all_odds()` henter alle
+  kilder til ÉN slip (Pinnacle raskt HTTP først, NT-nettleser etterpå,
+  NT-feil er ikke fatale — advarsel i UI i stedet).
+- **Markedssentiment i ev_engine:** de-vigget Pinnacle-P per kamp
+  (`market_anchor`, nøkkel = sortert id-par så bytt rekkefølge tåles).
+  P brukt til EV = 0.7·marked + 0.3·kalibrert Elo (config.
+  MARKET_BLEND_WEIGHT; markedet er skarpere og priser inn skader/nyheter).
+- **«Vedd aldri mot markedet»:** når anker finnes kreves i tillegg at oddsen
+  slår de-vigget Pinnacle-pris (market_p·odds > 1). Uten dette ga modell-
+  avvik på obskure spillere «+120 % EV» på 14-odds hos Pinnacle selv —
+  live-verifisert at vakten nuller alle spill mot Pinnacles egne odds.
+- Kolonner i df/rapport/UI: book, elo_p, market_p, model_p (= blandet P som
+  brukes). Track-loggen får book. UI-knapp heter «Hent odds & regn».
+- 64 tester grønne (nye: test_odds_sources.py + sentiment-/markedsvakt-tester).
+
 ## Gjennomgang 2026-07-07 (forbedringer)
 - **Sikkerhetsvakt i ev_engine:** kamper med uløst spiller-id (P≈0.5 fra
   default-rating) anbefales ALDRI — de ga falske kanter på høye odds. Ny
