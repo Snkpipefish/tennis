@@ -279,6 +279,25 @@ Leif: «veldig uoversiktlig» + vil ha antagelser selv når oddsen er dårlig.
   (sammenlagt som standard) — hovedtouren dominerer siden.
 - 66 tester grønne; live: 155 kamper, alle med tips.
 
+## Selvtrening + auto-avgjøring (2026-07-07 sen kveld)
+Leif spurte om sentiment-motor og trening på gamle/fremtidige resultater.
+Sentiment (markedsanker) var på plass; treningen hadde et HULL: tennis-data-
+cachen ble aldri oppfrisket -> modellen ville frosset. Fikset:
+- **fetch_tennis_data:** inneværende sesong lastes på nytt når cachen er
+  >12 t gammel (ferdige sesonger caches evig). Feilet oppfrisking beholder
+  gammel fil. Verifisert live (touch -d + re-download).
+- **Selvtrening i UI:** «Hent odds & regn» bygger data+Elo på nytt automatisk
+  hvis siste bygg er >20 t gammelt (`ui._maybe_refresh_model`) — ingen klikk
+  nødvendig. `daily` gjør det alltid.
+- **track.auto_settle(matches):** åpne veddemål avgjøres AUTOMATISK mot nye
+  resultater (samme spillerpar, dato innsats-1d..+14d). Kjøres etter hver
+  dataoppdatering (UI + daily). Vant/Tapte-knappene består som fallback.
+- NB: tennis-data har 1–2 ukers etterslep på pågående turneringer (7. juli:
+  siste resultat 28. juni, midt i Wimbledon). Markeds-ankeret (Pinnacle)
+  priser inn fersk form daglig og kompenserer i mellomtiden.
+- Kalibratoren refittes kun ved `setup` (Platt er stabil); vurder årlig.
+- 67 tester grønne.
+
 ## Gjennomgang 2026-07-07 (forbedringer)
 - **Sikkerhetsvakt i ev_engine:** kamper med uløst spiller-id (P≈0.5 fra
   default-rating) anbefales ALDRI — de ga falske kanter på høye odds. Ny

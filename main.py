@@ -78,6 +78,9 @@ def cmd_daily(argv: list[str]) -> None:
     bankroll = _bankroll(argv)
     print("[1/4] Oppdaterer data ..."); matches = ingest.build_matches(verbose=False)
     print("[2/4] Oppdaterer Elo ...");  elo.build_elo(matches, verbose=False)
+    n_settled = track.auto_settle(matches)
+    if n_settled:
+        print(f"  {n_settled} åpne veddemål auto-avgjort fra nye resultater.")
     print("[3/4] Henter odds (Pinnacle + NT) ...")
     try:
         odds_sources.fetch_all_odds(matches=matches)

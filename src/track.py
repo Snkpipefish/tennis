@@ -93,6 +93,44 @@ def settle(bet_id: int, won: bool) -> dict:
     raise KeyError(f"Fant ikke veddemål {bet_id}")
 
 
+def auto_settle(matches: pd.DataFrame, verbose: bool = True) -> int:
+    """Avgjør åpne veddemål automatisk fra kampresultatene i datasettet.
+
+    Kjøres etter hver dataoppdatering: finner resultatet for hvert åpne
+    veddemål (samme spillerpar, spilt fra dagen før innsats og 14 dager frem)
+    og registrerer vant/tapte uten at noen trykker på noe. Knappene i UI-et
+    finnes fortsatt for kamper resultatkilden ikke har fått ennå.
+    """
+    from .nt_odds import _norm
+
+    records = load_log()
+    pending = [r for r in records if r["status"] == "pending"]
+    if not pending:
+        return 0
+    n = 0
+    for r in pending:
+        if " – " not in r["match"]:
+            continue
+        a, b = (_norm(s) for s in r["match"].split(" – ", 1))
+        placed = pd.Timestamp(r["placed_date"])
+        cand = matches[(matches["date"] >= placed - pd.Timedelta(days=1))
+                       & (matches["date"] <= placed + pd.Timedelta(days=14))]
+        wn = cand["winner_name"].map(_norm)
+        ln = cand["loser_name"].map(_norm)
+        hit = cand[((wn == a) & (ln == b)) | ((wn == b) & (ln == a))]
+        if hit.empty:
+            continue
+        row = hit.iloc[-1]
+        won = _norm(row["winner_name"]) == _norm(r["bet_on"])
+        settle(r["bet_id"], won)
+        n += 1
+        if verbose:
+            print(f"  auto-avgjort #{r['bet_id']}: {r['bet_on']} {'VANT' if won else 'tapte'}")
+    if n:
+        write_report(load_log())
+    return n
+
+
 def settle_match(match_substr: str, bet_on: str, won: bool) -> dict:
     """Hjelper: registrer utfall via kamp-/spillernavn i stedet for id."""
     records = load_log()
@@ -147,7 +185,11 @@ def write_report(records: list[dict]) -> None:
     L: list[str] = []
     L.append("# Track record — Modul 7")
     L.append("")
-    L.append(f"_Egne veddemål logget i `{config.TRACK_LOG.relative_to(config.ROOT)}`._")
+    try:
+        log_ref = config.TRACK_LOG.relative_to(config.ROOT)
+    except ValueError:
+        log_ref = config.TRACK_LOG
+    L.append(f"_Egne veddemål logget i `{log_ref}`._")
     L.append("")
     L.append("## Status")
     L.append("")

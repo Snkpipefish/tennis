@@ -66,11 +66,22 @@ def _td_cache_path(tour: str, year: int) -> Path:
 
 
 def fetch_tennis_data(seasons: list[int] | None = None, *, force_refresh: bool = False, verbose: bool = True) -> None:
+    """Last tennis-data-xlsx til cache.
+
+    Ferdigspilte sesonger caches for alltid; INNEVÆRENDE sesong får nye
+    resultater fortløpende og lastes derfor på nytt når cachen er eldre enn
+    12 timer — det er slik modellen trener seg på ferske resultater. Feiler
+    oppfriskingen beholdes den gamle filen (bedre gammelt enn ingenting)."""
+    import datetime as _dt
+
     seasons = seasons or _VALIDATION_SEASONS
+    this_year = _dt.date.today().year
     for tour in config.TOURS:
         for year in seasons:
             path = _td_cache_path(tour, year)
-            if path.exists() and not force_refresh:
+            stale = (year >= this_year and path.exists()
+                     and time.time() - path.stat().st_mtime > 12 * 3600)
+            if path.exists() and not force_refresh and not stale:
                 continue
             url = config.TENNIS_DATA_URLS[tour].format(year=year)
             if verbose:
@@ -85,6 +96,10 @@ def fetch_tennis_data(seasons: list[int] | None = None, *, force_refresh: bool =
                     pass
                 time.sleep(1.0 * (attempt + 1))
             else:
+                if path.exists():  # oppfrisking feilet -> behold gammel cache
+                    if verbose:
+                        print(f"  klarte ikke oppdatere {tour} {year} — bruker cachet fil")
+                    continue
                 raise RuntimeError(f"Klarte ikke laste odds {tour} {year}")
 
 

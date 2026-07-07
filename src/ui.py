@@ -297,11 +297,31 @@ def index():
     return render_template_string(TEMPLATE, **_dashboard_context())
 
 
+def _maybe_refresh_model() -> str | None:
+    """Selvtrening: bygg data + Elo på nytt hvis siste bygg er >20 t gammelt.
+    Inneværende sesong hentes da ferskt fra tennis-data (12 t-cache), og åpne
+    veddemål avgjøres automatisk mot de nye resultatene."""
+    import time as _t
+
+    p = config.MATCHES_PARQUET
+    if p.exists() and _t.time() - p.stat().st_mtime < 20 * 3600:
+        return None
+    from . import elo, ingest
+
+    m = ingest.build_matches(verbose=False)
+    elo.build_elo(m, verbose=False)
+    n = track.auto_settle(m, verbose=False)
+    return "Modellen trente på ferske resultater" + (f" ({n} veddemål auto-avgjort)." if n else ".")
+
+
 @app.route("/fetch", methods=["POST"])
 def fetch():
     try:
         from . import odds_sources
 
+        trained = _maybe_refresh_model()
+        if trained:
+            flash(trained)
         entries, warnings = odds_sources.fetch_all_odds()
         ev_engine.run(config.DEFAULT_BANKROLL, verbose=False)  # oppdater rapporten
         n_by_book: dict[str, int] = {}
@@ -321,7 +341,8 @@ def refresh_model():
 
         m = ingest.build_matches(verbose=False)
         elo.build_elo(m, verbose=False)
-        flash("Data og Elo-modell oppdatert.")
+        n = track.auto_settle(m, verbose=False)
+        flash("Data og Elo-modell oppdatert." + (f" {n} veddemål auto-avgjort." if n else ""))
     except Exception as exc:
         flash(f"Oppdatering feilet: {exc}", "err")
     return redirect(url_for("index"))

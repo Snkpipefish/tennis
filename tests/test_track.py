@@ -11,6 +11,7 @@ from src import track
 @pytest.fixture(autouse=True)
 def _tmp_log(tmp_path, monkeypatch):
     monkeypatch.setattr(track.config, "TRACK_LOG", tmp_path / "track.json")
+    monkeypatch.setattr(track.config, "REPORTS_DIR", tmp_path)
     yield
 
 
@@ -51,6 +52,27 @@ def test_compute_stats_roi() -> None:
     assert s["actual_roi"] == pytest.approx(0.25)
     # forventet profit = 100*0.25 + 100*0.20 = 45
     assert s["expected_profit"] == pytest.approx(45.0)
+
+
+def test_auto_settle_fra_resultater() -> None:
+    import pandas as pd
+
+    track.save_log([
+        {**_pending(1, 100, 2.0, 0.6, 0.2), "match": "Jannik Sinner – Jan Struff", "bet_on": "Jannik Sinner"},
+        {**_pending(2, 100, 3.0, 0.4, 0.2), "match": "Novak Djokovic – Felix Auger Aliassime", "bet_on": "Felix Auger Aliassime"},
+        {**_pending(3, 100, 2.0, 0.5, 0.1), "match": "Ukjent A – Ukjent B", "bet_on": "Ukjent A"},
+    ])
+    matches = pd.DataFrame({
+        "date": [pd.Timestamp("2026-06-20"), pd.Timestamp("2026-06-21")],
+        "winner_name": ["Jannik Sinner", "Novak Djokovic"],
+        "loser_name": ["Jan Struff", "Felix Auger Aliassime"],
+    })
+    n = track.auto_settle(matches, verbose=False)
+    assert n == 2
+    log = {r["bet_id"]: r for r in track.load_log()}
+    assert log[1]["status"] == "won"      # Sinner vant, vi holdt Sinner
+    assert log[2]["status"] == "lost"     # Djokovic vant, vi holdt FAA
+    assert log[3]["status"] == "pending"  # resultat ikke funnet -> urørt
 
 
 def test_settle_match_hjelper() -> None:
