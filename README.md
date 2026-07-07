@@ -1,77 +1,72 @@
-# Tennis +EV-maskin for Norsk Tipping
+# Tennis-tips — kalibrert Elo + markedssentiment
 
-Lokalt Python-verktøy som produserer tennis-veddemål med positiv forventet
-verdi (+EV) målt mot Norsk Tippings odds. Veddemål legges inn **manuelt** hos
-NT — ingen automatisk innsats. Privat, ikke-kommersiell bruk.
+Maskin som predikerer vinnersannsynlighet for alle profesjonelle tenniskamper
+(ATP/WTA, Challenger, ITF — single og double) og flagger eventuelle odds med
+positiv forventet verdi. Kjører helt automatisk i GitHub Actions og publiserer
+dagens tips på:
 
-## Status
-Alle moduler (1–7) er bygget, testet og kjørt. Kalibreringsporten er passert
-(godkjent). Detaljert status i `PROGRESS.md`, overordnet plan i `plan.md`.
+**https://snkpipefish.github.io/tennis/**
 
-## Oppsett
-Ingenting å sette opp manuelt. `main.py` oppretter `.venv` og installerer
-avhengigheter automatisk ved første kjøring, og bruker alltid riktig miljø.
+Siden oppdateres fire ganger daglig uten manuelle steg. Privat,
+ikke-kommersiell bruk.
 
-## Bruk
-**Enkleste bruk — lokal web-UI** (ingen terminal i det daglige):
+## Slik virker det
+
+1. **Resultater**: Jeff Sackmanns historiske data (2005–2024) skjøtes med
+   tennis-data.co.uk (til ~1–2 uker siden) og ESPNs åpne scoreboard-API
+   (frem til i går kveld). Modellen er alltid trent på ferske resultater.
+2. **Modell**: kronologisk Elo (samlet + per underlag), avtagende K-faktor
+   `K(n) = 250/(n+5)^0.4`, nye spillere seedes fra ranking. Sannsynlighetene
+   Platt-kalibreres out-of-sample (Brier 0.217, ECE 0.021 på urørt testsesong).
+3. **Markedssentiment**: de-viggede odds fra Pinnacles åpne gjeste-API
+   (verdens skarpeste bok) vektes 70/30 mot modellens P — markedet priser inn
+   skader, form og nyheter som Elo ikke ser.
+4. **Tips og verdi**: hver kamp får maskinens favoritt + prosent. Spill
+   flagges kun når EV > 5 % **og** oddsen slår markedets fair pris — og aldri
+   på spillere modellen ikke kjenner. Innsats: 1/4-Kelly, maks 5 % av
+   bankroll, oppgitt per 1000 kr.
+
+## Kjør selv (valgfritt)
+
 ```bash
-python3 main.py ui              # åpne http://127.0.0.1:5057 i nettleseren
+python3 main.py ui      # lokalt dashbord på http://127.0.0.1:5057
+python3 main.py daily   # samme pipeline fra kommandolinjen
+python3 main.py setup   # full rebygging inkl. kalibrering og markedsvalidering
+python3 -m src.publish  # generer den statiske siden til site/
+.venv/bin/python -m pytest -q
 ```
-Dashboardet viser dagens anbefalte veddemål og track record, med knapper for å
-hente NT-odds, regne på nytt, loggføre og registrere utfall. Bankroll settes i
-et felt. Alt skjer ved klikk.
 
-Kommandolinje (samme funksjoner, om ønskelig):
-```bash
-python3 main.py setup           # bygg/oppdater data, Elo, kalibrering, markedssjekk
-python3 main.py daily -b 5000   # hent NT-odds, oppdater + regn dagens veddemål
-python3 main.py log   -b 5000   # loggfør anbefalte veddemål
-python3 main.py settle <id> win # registrer utfall
-.venv/bin/python -m pytest -q   # 51 tester
-```
-### Henting av NT-odds
-Norsk Tipping er bot-beskyttet (Akamai), så odds kan ikke hentes med en vanlig
-HTTP-forespørsel. I stedet styrer maskinen en ekte nettleser (Playwright):
-knappen «Hent NT-odds & regn» (eller `python3 main.py daily`) åpner et
-nettleservindu, laster NT, henter dagens tennisodds og lukker igjen — helt
-automatisk, ingen tasting. Første gang lastes nettlesermotoren ned (engangs,
-~1 min). (`python3 main.py manual` finnes som siste nødløsning.)
+`main.py` oppretter `.venv` og installerer avhengigheter automatisk første
+gang. Skypubliseringen styres av `.github/workflows/publish.yml`.
 
 ## Arkitektur
-- `src/config.py` — stier, datakilde, parametre.
-- `src/ingest.py` — **Modul 1**: laster Sackmann ATP+WTA CSV (2005–2024) med
-  caching i `data/raw/`, bygger ren parquet-tabell.
-- `src/elo.py` — **Modul 2**: kronologisk Elo (samlet + underlag), avtagende
-  K, rank-seeding av nye spillere, inkrementell lagring.
-- `src/calibrate.py` — **Modul 3**: out-of-sample kalibrering (Brier, log-loss,
-  ECE, reliability-diagram, Platt/isotonisk). Den harde porten.
-- `src/market_check.py` — **Modul 4**: laster Pinnacle/Bet365 closing odds fra
-  tennis-data.co.uk, de-vigger, validerer modellen mot markedet.
-- `src/nt_odds.py` — **Modul 5**: henter NT-odds AUTOMATISK fra Kambi
-  (operator `ntno`, Modus B), kobler kamper til spiller-id, infererer underlag.
-  Ingen manuell inntasting. NB: Kambi blokkerer datasenter-IP — kjør fra norsk
-  nett. Manuell inntasting finnes kun som nødløsning (`main.py manual`).
-- `src/ev_engine.py` — **Modul 6**: EV = kalibrert_P·NT_odds − 1, vedd kun ved
-  EV > 5 %, 1/4-Kelly innsats. Skriver `reports/today_bets.md`.
-- `src/track.py` — **Modul 7**: logger utfall, faktisk vs forventet ROI,
-  kalibreringskurve på egne veddemål. Skriver `reports/track_record.md`.
-- `src/ui.py` — lokal Flask-web-UI (`python main.py ui`): dashboard med dagens
-  veddemål, track record, og knapper for henting/loggføring/utfall.
 
-## Modell (kort)
-Surface-blandet Elo med logistisk sannsynlighet
-`P(A) = 1 / (1 + 10^((R_B − R_A)/400))`, avtagende K-faktor
-`K(n) = 250/(n+5)^0.4` (Betfair/538), nye spillere seedet fra inngangsranking.
-Sannsynlighetene Platt-kalibreres mot out-of-sample-utfall.
+- `src/config.py` — stier, kilder, parametre.
+- `src/ingest.py` — historiske data (Sackmann-speil) -> ren parquet.
+- `src/extend.py` — skjøter på tennis-data.co.uk (2024–nå).
+- `src/results.py` — tetter resultat-gapet med ESPN-scoreboard (samme dag).
+- `src/elo.py` — Elo-modellen, inkrementell lagring.
+- `src/calibrate.py` — out-of-sample kalibrering (den harde porten).
+- `src/market_check.py` — validering mot Pinnacle/Bet365 closing odds.
+- `src/odds_sources.py` — dagens odds fra Pinnacle (åpent API, ingen nøkkel).
+- `src/ev_engine.py` — blandet P, EV, markeds-vakt, Kelly-innsats.
+- `src/track.py` — loggfører spill, auto-avgjør mot nye resultater, ROI.
+- `src/ui.py` — lokalt Flask-dashbord.
+- `src/publish.py` — statisk side for GitHub Pages.
+- `src/nt_odds.py` — *dormant*: tidligere Norsk Tipping-henting, droppet fra
+  flyten (krevde norsk hjemme-IP og nettleser). Reaktiveres kun via
+  `config.INCLUDE_NT`.
 
-## Datakilde og lisens
-Match-data er Jeff Sackmanns tennis-CSV-er
-([tennis_atp](https://github.com/JeffSackmann/tennis_atp) /
-[tennis_wta](https://github.com/JeffSackmann/tennis_wta)), lisensiert under
-**CC BY-NC-SA 4.0** — kun ikke-kommersiell bruk, med kreditering og deling på
-samme vilkår. Originalrepoene var utilgjengelige (404) ved bygging, så data
-hentes fra et speil som inneholder de uendrede Sackmann-filene (konfigurert i
-`src/config.py`). Eventuell Norsk Tipping-skraping skjer kun i lavt volum til
-eget bruk.
+## Datakilder og lisens
 
-Kreditering: data © Jeff Sackmann / Tennis Abstract.
+- Historiske kamper: © Jeff Sackmann / Tennis Abstract
+  ([tennis_atp](https://github.com/JeffSackmann/tennis_atp) /
+  [tennis_wta](https://github.com/JeffSackmann/tennis_wta)),
+  **CC BY-NC-SA 4.0** — ikke-kommersiell bruk med kreditering.
+  Originalrepoene var nede ved bygging; data hentes fra et speil med de
+  uendrede filene (se `src/config.py`).
+- Nyere resultater og closing odds: tennis-data.co.uk.
+- Ferske resultater: ESPNs offentlige scoreboard-API.
+- Dagens odds: Pinnacles offentlige gjeste-API.
+
+Tips er sannsynligheter, ikke garantier — spill ansvarlig.

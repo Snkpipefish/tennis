@@ -20,10 +20,11 @@ alternativer. Velg det beste alternativet selv og forklar kort hva du
 valgte og hvorfor, i etterkant.
 
 ## Det eneste Leif gjør
-- Godkjenner ved det ene stopp-punktet etter Modul 3 (kalibrering).
-- Oppgir bankroll-tall når du trenger det til Modul 6.
-- Skriver inn Norsk Tipping-odds når maskinen er ferdig og i bruk.
 - Sier fra om han vil endre selve MÅLET (ikke metoden).
+- Alt annet går automatisk: GitHub Actions publiserer tipsene på
+  https://snkpipefish.github.io/tennis/ uten at noen gjør noe.
+  (Norsk Tipping er DROPPET fra flyten — Leifs beslutning 2026-07-07.
+  Bankroll oppgis aldri; innsatser vises per 1000 kr.)
 
 ## Stopp-punktet
 Etter Modul 3: kjør kalibreringen, skriv reports/calibration.md, og
