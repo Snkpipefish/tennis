@@ -1,0 +1,11 @@
+# Miljø og cache
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Data og modeller (store, gjenbyggbare med `python main.py setup`)
+data/
+models/
+
+# Genererte bilder i rapporter
+reports/*.png

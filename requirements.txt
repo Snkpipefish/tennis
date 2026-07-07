@@ -1,0 +1,10 @@
+pandas
+numpy
+scikit-learn
+pyarrow
+matplotlib
+requests
+openpyxl
+flask
+playwright
+pytest
