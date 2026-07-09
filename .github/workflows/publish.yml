@@ -11,7 +11,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write   # committer odds-snapshots (data/odds_history) tilbake til repo
   pages: write
   id-token: write
 
@@ -39,6 +39,18 @@ jobs:
           restore-keys: rawdata-v1-
       - run: pip install pandas numpy scikit-learn pyarrow requests openpyxl flask
       - run: python -m src.publish
+      # Odds-snapshots committes til repo — grunnlag for CLV-analyse
+      # (tools/clv_report.py). [skip ci] hindrer at pushen retriggerer.
+      - name: Commit odds-snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/odds_history
+          if ! git diff --cached --quiet; then
+            git commit -m "odds-snapshot $(date -u +%FT%TZ) [skip ci]"
+            git pull --rebase origin main
+            git push origin main
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

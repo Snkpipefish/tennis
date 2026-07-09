@@ -333,6 +333,33 @@ Leif: «det skal gå uavhengig av meg, så dropp bare NT». Gjort:
 - **Git:** prosjektet er nå under versjonskontroll (.gitignore utelater
   .venv/, data/, models/ og genererte png-er). 56 tester grønne.
 
+## Kant-forskning: hva som IKKE virker + CLV-logging (2026-07-09/10)
+Leif foreslo underlag som kant; utvidet til systematisk test av kandidat-
+signaler mot Pinnacle CLOSING-odds (regresjon oppå logit(marked-P), bootstrap-
+KI, + flat-ROI-backtest). Verktøy i scratchpad; funn her er det som teller:
+- **Underlagsdelta** (underlags-Elo vs samlet Elo), 4 422 kamper 2025–26:
+  koeff −0.07, KI dekker null. ROI på «underlag mot markedet»: −7,5 til −8 %.
+  Markedet priser underlag fullt ut.
+- **Serve/retur-form** (EMA av serve-/returpoeng vunnet %, totalt/underlag,
+  fra Sackmann-statistikk), 13 442 kamper 2022–24: alle koeff. små, KI dekker
+  null, log-loss-effekt ≤ 1,4 bp. Ingenting.
+- **Tretthet** (dager siden forrige kamp, kamper siste 7/14 d), begge epoker:
+  null effekt.
+- **Elo-avvik fra marked er ANTI-informativt mot closing** (koeff −0.045,
+  signifikant, 2022–24): når Elo er uenig med Pinnacle har Pinnacle rett og
+  vel så det. Støtter høy MARKET_BLEND_WEIGHT (0.7); ikke senk den.
+- **Eneste utestbare kandidat: tidlig-odds vs closing (CLV).** Kan ikke
+  backtestes (ingen historikk med tidlig-odds) -> bygget logging:
+  `publish.log_snapshot()` skriver hver kjøring (4x/dag i skyen) til
+  `data/odds_history/YYYY-MM.jsonl`; workflowen committer filene til repo
+  ([skip ci] hindrer retrigger; permissions: contents: write).
+  **`python -m tools.clv_report`** kobler snapshots mot tennis-datas closing
+  og måler CLV på modellens flagg — kjør når noen ukers data er samlet
+  (trenger hundrevis av koblede sider). Positiv snitt-CLV på flaggene =
+  ekte kant; negativ = markedet vinner også tidlig på dagen.
+- Bugfiks underveis: 0-verdier i B365-kolonnene (2025+-filene) krasjet
+  `market_check.load_odds` — de-vig tåler nå ugyldige odds.
+
 ## Hvordan kjøre
 - Bygg data: `. .venv/bin/activate && python -m src.ingest`
 - Tester: `python -m pytest -q`

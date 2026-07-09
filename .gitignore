@@ -3,8 +3,11 @@
 __pycache__/
 .pytest_cache/
 
-# Data og modeller (store, gjenbyggbare med `python main.py setup`)
-data/
+# Data og modeller (store, gjenbyggbare med `python main.py setup`).
+# data/* i stedet for data/ slik at unntaket under virker: odds-snapshots
+# er IKKE gjenbyggbare (grunnlag for CLV-analyse) og committes av workflowen.
+data/*
+!data/odds_history/
 # models/ ekskluderes per fil (ikke som katalog!) slik at unntaket under
 # faktisk virker: kalibratoren (955 byte) committes fordi GitHub Actions
 # trenger den, og full rekalibrering i skyen er unødvendig dyrt.

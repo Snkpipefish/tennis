@@ -9,7 +9,8 @@ Kjør lokalt for test:  python -m src.publish
 """
 from __future__ import annotations
 
-from datetime import datetime
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -19,6 +20,7 @@ from . import config, elo, ev_engine, ingest, odds_sources
 from .ui import build_overview
 
 SITE_DIR = config.ROOT / "site"
+HISTORY_DIR = config.DATA_DIR / "odds_history"
 
 _PAGE = """<!doctype html><html lang="no"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -129,6 +131,29 @@ def render_site(entries: list[dict], df: pd.DataFrame, matches: pd.DataFrame) ->
     )
 
 
+def log_snapshot(df: pd.DataFrame) -> None:
+    """Logg dagens evaluerte odds til data/odds_history/YYYY-MM.jsonl.
+
+    Grunnlag for CLV-analyse (closing line value): eneste gjenværende
+    kandidat-kant som ikke kan backtestes historisk. Snapshots fra de fire
+    daglige kjøringene sammenlignes senere med tennis-datas closing-odds
+    (tools/clv_report.py). Committes til repoet av workflowen.
+    """
+    if df.empty:
+        return
+    HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    cols = ["book", "tour", "surface", "tournament", "start", "match",
+            "side", "bet_on", "model_p", "elo_p", "market_p", "nt_odds",
+            "ev", "known", "bet"]
+    path = HISTORY_DIR / f"{ts[:7]}.jsonl"
+    out = df[cols].astype(object).where(df[cols].notna(), None)  # NaN -> null
+    with path.open("a", encoding="utf-8") as f:
+        for r in out.to_dict("records"):
+            r["ts"] = ts
+            f.write(json.dumps(r, ensure_ascii=False, default=str) + "\n")
+
+
 def main() -> int:
     print("[1/4] Bygger data (Sackmann + tennis-data + ESPN) ...")
     matches = ingest.build_matches(verbose=True)
@@ -140,6 +165,7 @@ def main() -> int:
         print(f"  ADVARSEL: {w}")
     print("[4/4] Regner tips og skriver site/index.html ...")
     df = ev_engine.evaluate_slip(entries, config.DEFAULT_BANKROLL)
+    log_snapshot(df)
     SITE_DIR.mkdir(exist_ok=True)
     Path(SITE_DIR / "index.html").write_text(render_site(entries, df, matches))
     print(f"Ferdig: {SITE_DIR / 'index.html'} ({len(entries)} kamper)")
