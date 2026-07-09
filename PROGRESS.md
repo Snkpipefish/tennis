@@ -359,6 +359,14 @@ KI, + flat-ROI-backtest). Verktøy i scratchpad; funn her er det som teller:
   ekte kant; negativ = markedet vinner også tidlig på dagen.
 - Bugfiks underveis: 0-verdier i B365-kolonnene (2025+-filene) krasjet
   `market_check.load_odds` — de-vig tåler nå ugyldige odds.
+- **Favorittap-mønstre (2026-07-10, Leifs spørsmål):** favoritt-longshot-
+  skjevheten FINNES (underdoger taper mer enn favoritter: −5,9 % vs −2,7 %
+  flat ROI 2022–24; dogs mot storfavoritter taper −24 til −43 %), men
+  ingen segment-strategi overlever validering: storfavoritter p≥0.85 ga
+  +0,7 % i lete-settet 2022–24 men **−3,8 %** på 2025–26; «spill dog i
+  jevne kamper» ga +0,5 % -> **−8,6 %**. Tour/underlag/runde/best-of: alt
+  innenfor støy. Lærdom: skjevheten er for liten til å slå vig-en, og
+  segmentfunn uten out-of-sample-validering er feller.
 
 ## Hvordan kjøre
 - Bygg data: `. .venv/bin/activate && python -m src.ingest`
