@@ -359,6 +359,18 @@ KI, + flat-ROI-backtest). Verktøy i scratchpad; funn her er det som teller:
   ekte kant; negativ = markedet vinner også tidlig på dagen.
 - Bugfiks underveis: 0-verdier i B365-kolonnene (2025+-filene) krasjet
   `market_check.load_odds` — de-vig tåler nå ugyldige odds.
+- **Vær + kombinasjoner (2026-07-10, Leifs spørsmål):** Open-Meteo-arkiv
+  (daglig vind/kast/temp/nedbør, 107 turneringsbyer via tennis-datas
+  Location-kolonne) koblet på 13 442 + 4 422 kamper. Vær er symmetrisk og
+  kan bare virke via samspill; testet: vind×marked, kast×marked,
+  varme×tretthet, vind×serve-dominans, nedbør×marked, gress×fersk
+  gresserfaring (21 d), + innendørs-placebo. ALT null i begge epoker,
+  unntatt nedbør×marked som var «signifikant» kun i den lille 2025–26-
+  epoken (+0.13), insignifikant i den store (+0.03), med MOTSATT fortegn
+  av hypotesen (favoritter vinner MER i regn?) — klassisk støy blant 14
+  tester. Konklusjon: ingen værkant; verktøy i scratchpad
+  (fetch_weather.py, weather_edges.py, build_features.py m/ serve-
+  dominans og underlags-recency) hvis sporet skal gjenåpnes.
 - **Favorittap-mønstre (2026-07-10, Leifs spørsmål):** favoritt-longshot-
   skjevheten FINNES (underdoger taper mer enn favoritter: −5,9 % vs −2,7 %
   flat ROI 2022–24; dogs mot storfavoritter taper −24 til −43 %), men
