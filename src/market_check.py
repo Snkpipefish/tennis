@@ -131,7 +131,10 @@ def load_odds(seasons: list[int] | None = None, *, force_refresh: bool = False) 
     odds["pinn_p_winner"] = iw / over
     odds["pinn_overround"] = over - 1.0  # margin (vig)
     if {"B365W", "B365L"}.issubset(odds.columns):
-        bw, bl = 1.0 / odds["B365W"], 1.0 / odds["B365L"]
+        # 2025+-filene har 0/ugyldige B365-odds på enkelte rader.
+        b365w = pd.to_numeric(odds["B365W"], errors="coerce").where(lambda s: s > 1.0)
+        b365l = pd.to_numeric(odds["B365L"], errors="coerce").where(lambda s: s > 1.0)
+        bw, bl = 1.0 / b365w, 1.0 / b365l
         odds["b365_p_winner"] = bw / (bw + bl)
     else:
         odds["b365_p_winner"] = np.nan
