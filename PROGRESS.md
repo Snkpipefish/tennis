@@ -430,3 +430,23 @@ uavhengige kontrollører (workflow), alle hovedtall reprodusert.
   «Pliskova Ka.») -> nøkkel «tiranteta» matchet aldri Sackmann. Rettet regex
   + 6 nye testtilfeller (77 tester grønne). Løfter koblingsgraden i
   market_check/clv_report (2026-snapshots: 84 % -> 90 % koblet).
+
+## Kupong-seksjon + nytt design på siden (2026-09-06, Leifs bestilling)
+Leif: «oppdater ui så den viser de kampene jeg burde spille sammen, og så den
+ser bedre ut». Gjort i `src/publish.py` (den publiserte siden) + `src/ui.py`:
+- **Dagens kupong** øverst: hovedtourens sterkeste favoritter (alle med tips
+  ≥ 80 %, minst 3 rader, maks 12), de med ≥ 85 % forhåndsvalgt (research:
+  ~92 av 100 går inn, break-even hos Pinnacle). Avkrysningsbokser; JS
+  regner live: antall, samlet odds, P(alle inn), P(høyst ett tap), «går
+  vanligvis inn» (sum P), forventet kr per 1000 (Pinnacle-odds). Ærlig
+  fotnote om at ledd under 85 % koster 1–3 % og at kupongen ganger opp tapet.
+  `ui.build_kupong(sections)`; radene i `build_overview` har nå numeriske
+  felt (`tip_prob`, `tip_odds`, `tip_approx`, `level`).
+- **Design:** ny CSS (kort, statistikk-ruter, P-merker farget etter styrke
+  ≥85 grønn / ≥70 blå / ellers grå, monospace-odds, turneringsoverskrifter
+  med piller, ryddigere mobilvisning med grid for kupongradene). «Anbefalte
+  spill» er én linje når tom (nesten alltid), eget kort når det finnes.
+- Tester: `test_build_kupong_velger_hovedtourens_sterkeste`,
+  `test_render_site_har_kupong_og_oversikt` (83 grønne). Forhåndsvist lokalt
+  (`.claude/launch.json` → `site-preview`, http.server på scratchpad-kopi).
+- Lokal Flask-UI (`main.py ui`) er uendret (bruker samme build_overview).

@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "site",
+      "name": "site-preview",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8123", "--directory", "site"],
-      "port": 8123
+      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "/tmp/claude-1000/-home-pc-prosjekter-tennis/cedfe7f2-68f0-49a3-b090-14477a159e18/scratchpad/site"],
+      "port": 8765
     }
   ]
 }

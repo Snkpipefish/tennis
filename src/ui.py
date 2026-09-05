@@ -100,9 +100,14 @@ def build_overview(entries: list[dict], df: pd.DataFrame) -> list[dict]:
             tip_pa = devig_power(oa, ob)
             tip_approx = True
         tip_side = "a" if tip_pa >= 0.5 else "b"
+        main_odds = m["odds"].get("pinnacle") or next(iter(m["odds"].values()))
         rows[key] = {
             **m,
             "time": _fmt_time(m["start"]),
+            "level": _level_of(m["tournament"] or ""),
+            "tip_prob": max(tip_pa, 1 - tip_pa),
+            "tip_approx": tip_approx,
+            "tip_odds": float(main_odds[0] if tip_side == "a" else main_odds[1]),
             "odds_str": {b: f"{o[0]:.2f} / {o[1]:.2f}" for b, o in m["odds"].items()},
             "odds_main": next((f"{o[0]:.2f} / {o[1]:.2f}" for b, o in m["odds"].items()
                                if b == "pinnacle"),
@@ -130,6 +135,37 @@ def build_overview(entries: list[dict], df: pd.DataFrame) -> list[dict]:
             out.append({"title": title, "open": title == "Hovedtour",
                         "tournaments": ts, "n": sum(len(t["matches"]) for t in ts)})
     return out
+
+
+def build_kupong(sections: list[dict], *, pick_p: float = 0.85, show_p: float = 0.80,
+                 min_rows: int = 3, max_rows: int = 12) -> dict:
+    """Kupong-forslag: hovedtourens sterkeste favoritter, sortert etter P.
+
+    Alle med P >= show_p vises (minst min_rows, høyst max_rows); de med
+    P >= pick_p er forhåndsvalgt. Grunnlag: reports/toppN_favoritter.md —
+    favoritter over 85 % går inn ~92 av 100 ganger og er break-even hos
+    Pinnacle; svakere ledd taper 1–3 % hver og kupongen ganger opp tapet.
+    """
+    cands = [m for sec in sections if sec["title"] == "Hovedtour"
+             for t in sec["tournaments"] for m in t["matches"]
+             if m["kind"] == "single" and m.get("tip_odds")]
+    cands.sort(key=lambda m: (-m["tip_prob"], m["sort_start"]))
+    rows = [m for m in cands if m["tip_prob"] >= show_p]
+    if len(rows) < min_rows:
+        rows = cands[:min_rows]
+    rows = rows[:max_rows]
+    picks = []
+    for m in rows:
+        picks.append({
+            "key": m["key"], "time": m["time"], "tournament": m["tournament"],
+            "tour": m["tour"].upper(), "name": m["tip_name"],
+            "opponent": m["name_b"] if m["tip_side"] == "a" else m["name_a"],
+            "p": round(float(m["tip_prob"]), 4), "p_str": m["tip_p"],
+            "odds": round(float(m["tip_odds"]), 3), "approx": bool(m["tip_approx"]),
+            "checked": m["tip_prob"] >= pick_p,
+        })
+    return {"picks": picks, "n_checked": sum(p["checked"] for p in picks),
+            "pick_p": pick_p, "show_p": show_p}
 
 
 TEMPLATE = """
