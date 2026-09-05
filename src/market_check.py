@@ -50,7 +50,8 @@ def sackmann_surname_key(name: object) -> str:
 def tennis_data_surname_key(name: object) -> str:
     """tennis-data 'Etternavn X.' -> normalisert etternavn (dropp initialer)."""
     # Fjern etterfølgende initialer som 'M.' / 'J.M.' / 'D.E.'
-    cleaned = re.sub(r"(\s+[A-Za-z]\.?)+\s*$", "", str(name).strip())
+    # (også "T.A." / "Ka." / "Xiy." — initialer med flere bokstaver eller punktum)
+    cleaned = re.sub(r"(\s+(?:[A-Za-z]+\.)+|\s+[A-Za-z])+\s*$", "", str(name).strip())
     return _norm(cleaned)
 
 

@@ -383,3 +383,44 @@ KI, + flat-ROI-backtest). Verktøy i scratchpad; funn her er det som teller:
 ## Hvordan kjøre
 - Bygg data: `. .venv/bin/activate && python -m src.ingest`
 - Tester: `python -m pytest -q`
+
+## Topp-N-favoritter per runde (2026-09-05/06, Leifs spørsmål)
+Leif: plukk de 10/15/20/25 mest sannsynlige kampene hver runde og sett dem
+samtidig — hvor mange går som oddsen sier, finnes det en kant? Fullt svar i
+**reports/toppN_favoritter.md**. Grunnlag: tennis-data.co.uk lastet for ALLE
+sesonger (ATP 2005–2026, WTA 2007–2026, 42 xlsx i data/odds/tennis_data_cache,
+2005 finnes bare som .xls -> konvertert) = 102 983 kamper med closing-odds
+(Pinnacle primær, Bet365 der Pinnacle mangler: 2009 + nesten hele 2026), pluss
+walk-forward Elo fra 2010 koblet på 70 183 kamper. 8 analysevinkler + 11
+uavhengige kontrollører (workflow), alle hovedtall reprodusert.
+- **Oddsen er kalibrert.** Topp-10 per dag: 7,6 av 10 inn (alle 10 på 14 %
+  av dagene); topp-15 11,1 (4,9 %); topp-20 14,7 (1,9 %); topp-25 18,2
+  (0,9 %). Nøyaktig som forventet med potens-de-vigging. Den 10. favoritten
+  på en vanlig dag er en 67 %-favoritt, den 25. en 59 %-favoritt.
+- **Ingen kant.** Singler på topp-N-favoritter −1,4 % (Pinnacle closing),
+  −3 til −4 % (Bet365). Kombo ganger opp marginen: 10-kombo −5 % (Pinnacle)
+  / −24 % (Bet365); 25-kombo −73 / −85 %. Systemspill = samme forventning.
+  Terskel P ≥ 0,85–0,90 hos Pinnacle (2–3 kamper/dag) er break-even (+0,2 %,
+  KI dekker null), negativt hos Bet365-type bok. Bare Grand Slam R1–R2-dager
+  (~17/år) har 10–25 favoritter med P > 0,80; der går alle topp-10 inn 47 %
+  av dagene — som oddsen sier. «Slam R1 begge tourer +15 %» er ett av 166
+  testede oppsett og forkastet som støy.
+- Utfall innen en dag er uavhengige (varians-ratio 0,97–0,99), ingen
+  klynging, ingen gode/dårlige uker. Morgenodds (2026-snapshots, 904 kamper)
+  er like godt kalibrert som closing; CLV −2,75 % = morgen-vigen.
+- Modell vs marked: markedet treffer 3,4 pp oftere per kamp; modellen
+  tilfører null gitt markeds-P; der de er uenige har markedet rett (−8 % å
+  følge modellen). Konsensusfilter endrer ingenting.
+- **Prosjektfeil funnet:** proporsjonal de-vigging (`devig_two_way`,
+  markedsankeret) undervurderer favoritter med P ≥ 0,85 med ~2 pp
+  (observert 92,4 %, proporsjonal 90,2 %, potens 91,6 %, rå 1/odds 92,2 %).
+  Potens-de-vig har lavest log-loss. TODO: bytt til potens-de-vig i
+  market_check/ev_engine (gjør tipsene riktigere for storfavoritter — gir
+  ikke kant). Ikke gjort ennå (utenfor spørsmålets scope).
+- Verktøy (scratchpad, sesjon 2026-09-05): build_dataset.py (bygger
+  odds_all.parquet fra cachen + Elo), agents/*/analyse.py + tabeller.md.
+- **Bugfiks (funnet av kontrollør):** `market_check.tennis_data_surname_key`
+  strippet ikke initialer med flere bokstaver («Tirante T.A.», «Struff J.L.»,
+  «Pliskova Ka.») -> nøkkel «tiranteta» matchet aldri Sackmann. Rettet regex
+  + 6 nye testtilfeller (77 tester grønne). Løfter koblingsgraden i
+  market_check/clv_report (2026-snapshots: 84 % -> 90 % koblet).

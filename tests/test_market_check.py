@@ -20,11 +20,27 @@ from src.market_check import (
         ("Alejandro Davidovich Fokina", "Davidovich Fokina A."),
         ("Iga Swiatek", "Swiatek I."),
         ("Stefanos Tsitsipas", "Tsitsipas S."),
+        ("Karolina Pliskova", "Pliskova Ka."),
     ],
 )
 def test_navnenokler_matcher(sackmann: str, td: str) -> None:
     assert sackmann_surname_key(sackmann) == tennis_data_surname_key(td)
     assert sackmann_surname_key(sackmann) != ""
+
+
+@pytest.mark.parametrize(
+    "td, key",
+    [
+        # Initialer med flere bokstaver/punktum strippes (feilet før 2026-09-06)
+        ("Tirante T.A.", "tirante"),
+        ("Cerundolo J.M.", "cerundolo"),
+        ("Struff J.L.", "struff"),
+        ("Wang Xiy.", "wang"),
+        ("Van De Zandschulp B.", "vandezandschulp"),
+    ],
+)
+def test_tennis_data_nokkel_stripper_initialer(td: str, key: str) -> None:
+    assert tennis_data_surname_key(td) == key
 
 
 def test_devig_balansert() -> None:
