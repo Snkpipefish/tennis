@@ -110,8 +110,9 @@ def test_markedssentiment_haandterer_byttet_rekkefolge() -> None:
                       player_b_id=1, player_b_name="Sterk", nt_odds_b=1.25)
     df = evaluate_slip([nt, pinn], bankroll=1000, model=_fake_model(), bundle=_identity_bundle())
     nt_a = df[(df["book"] == "nt") & (df["side"] == "A")].iloc[0]
-    # De-vigget P(Sterk) = (1/1.25)/(1/1.25 + 1/4.0) = 0.7619
-    assert nt_a["market_p"] == pytest.approx(0.7619, abs=1e-3)
+    # Potens-de-vigget P(Sterk): (1/1.25)^k + (1/4.0)^k = 1 -> 0.7824
+    # (proporsjonal ville gitt 0.7619 — den undervurderer favoritter).
+    assert nt_a["market_p"] == pytest.approx(0.7824, abs=1e-3)
 
 
 def test_uten_anker_brukes_ren_modell() -> None:

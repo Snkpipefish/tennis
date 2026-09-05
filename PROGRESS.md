@@ -414,9 +414,15 @@ uavhengige kontrollører (workflow), alle hovedtall reprodusert.
 - **Prosjektfeil funnet:** proporsjonal de-vigging (`devig_two_way`,
   markedsankeret) undervurderer favoritter med P ≥ 0,85 med ~2 pp
   (observert 92,4 %, proporsjonal 90,2 %, potens 91,6 %, rå 1/odds 92,2 %).
-  Potens-de-vig har lavest log-loss. TODO: bytt til potens-de-vig i
-  market_check/ev_engine (gjør tipsene riktigere for storfavoritter — gir
-  ikke kant). Ikke gjort ennå (utenfor spørsmålets scope).
+  Potens-de-vig har lavest log-loss. **GJORT 2026-09-06 (Leifs bestilling):**
+  `market_check.devig_power` (skalar, bisection) + `devig_power_array`
+  (vektorisert Newton) — finner k slik at (1/a)^k + (1/b)^k = 1. Brukes nå i
+  `ev_engine.market_anchor` (markedssentimentet, 70 % av P), i UI/publish-
+  tipset for ukjente spillere (`~`-anslag) og i `market_check.load_odds`
+  (pinn_p_winner/b365_p_winner -> markedsvalidering og clv_report). Gammel
+  `devig_two_way` består kun for bakoverkompatibilitet. Effekt: storfavoritt
+  1,06/9,10 får P 0,930 (før 0,895); jevne kamper uendret. Live-sjekk mot
+  Pinnacle OK (53 kamper, 38 med anker, ingen krasj). 81 tester grønne.
 - Verktøy (scratchpad, sesjon 2026-09-05): build_dataset.py (bygger
   odds_all.parquet fra cachen + Elo), agents/*/analyse.py + tabeller.md.
 - **Bugfiks (funnet av kontrollør):** `market_check.tennis_data_surname_key`

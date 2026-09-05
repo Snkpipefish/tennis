@@ -18,6 +18,7 @@ from flask import Flask, flash, redirect, render_template_string, request, url_f
 
 from . import config, ev_engine, nt_odds, track
 from .nt_odds import _norm
+from .market_check import devig_power
 
 app = Flask(__name__)
 app.secret_key = "tennis-ev-local"  # kun lokal bruk
@@ -96,7 +97,7 @@ def build_overview(entries: list[dict], df: pd.DataFrame) -> list[dict]:
                            f"{bb['stake_kr']:.0f} kr/1000")
         if tip_pa is None:
             oa, ob = m["odds"].get("pinnacle") or next(iter(m["odds"].values()))
-            tip_pa = (1.0 / oa) / (1.0 / oa + 1.0 / ob)
+            tip_pa = devig_power(oa, ob)
             tip_approx = True
         tip_side = "a" if tip_pa >= 0.5 else "b"
         rows[key] = {

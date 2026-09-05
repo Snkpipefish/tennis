@@ -24,6 +24,7 @@ import pandas as pd
 from . import config
 from .calibrate import apply_calibrator, load_calibrator
 from .elo import EloModel
+from .market_check import devig_power
 
 EV_THRESHOLD = 0.05
 KELLY_FRACTION = 0.25  # 1/4-Kelly
@@ -54,10 +55,12 @@ def match_key_of(e: dict) -> str:
 
 
 def market_anchor(entries: list[dict]) -> dict[tuple[int, int], float]:
-    """Markedssentiment: de-vigget Pinnacle-P per kamp.
+    """Markedssentiment: potens-de-vigget Pinnacle-P per kamp.
 
     Nøkkel = (lavest, høyest spiller-id), verdi = P(spilleren med lavest id
-    vinner) implisitt i Pinnacle-oddsene etter at vig-en er fjernet.
+    vinner) implisitt i Pinnacle-oddsene etter at vig-en er fjernet. Potens-
+    de-vig (ikke proporsjonal): proporsjonal undervurderte storfavoritter
+    med ~2 pp (reports/toppN_favoritter.md, 2026-09-06).
     """
     anchor: dict[tuple[int, int], float] = {}
     for e in entries:
@@ -66,8 +69,7 @@ def market_anchor(entries: list[dict]) -> dict[tuple[int, int], float]:
         key = _match_key(e)
         if key is None:
             continue
-        ia, ib = 1.0 / e["nt_odds_a"], 1.0 / e["nt_odds_b"]
-        p_a = ia / (ia + ib)
+        p_a = devig_power(e["nt_odds_a"], e["nt_odds_b"])
         anchor[key] = p_a if int(e["player_a_id"]) == key[0] else 1.0 - p_a
     return anchor
 

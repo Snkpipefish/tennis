@@ -18,7 +18,7 @@ ikke-kommersiell bruk.
 2. **Modell**: kronologisk Elo (samlet + per underlag), avtagende K-faktor
    `K(n) = 250/(n+5)^0.4`, nye spillere seedes fra ranking. Sannsynlighetene
    Platt-kalibreres out-of-sample (Brier 0.217, ECE 0.021 på urørt testsesong).
-3. **Markedssentiment**: de-viggede odds fra Pinnacles åpne gjeste-API
+3. **Markedssentiment**: potens-de-viggede odds fra Pinnacles åpne gjeste-API
    (verdens skarpeste bok) vektes 70/30 mot modellens P — markedet priser inn
    skader, form og nyheter som Elo ikke ser.
 4. **Tips og verdi**: hver kamp får maskinens favoritt + prosent. Spill

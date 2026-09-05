@@ -8,7 +8,7 @@ store reelle kanter vi realistisk kan vente (mot NT, ikke mot Pinnacle).
 
 Flyt:
 1. Last closing odds fra tennis-data.co.uk (Pinnacle PSW/PSL + Bet365), ATP+WTA.
-2. De-vig Pinnacle til ren implisitt P.
+2. De-vig Pinnacle til ren implisitt P (potens-de-vig).
 3. Koble hver kamp til modellens kalibrerte P (navn + årstall-join).
 4. Sammenlign kalibrering (modell vs marked) og skriv reports/market_validation.md.
 """
@@ -56,9 +56,50 @@ def tennis_data_surname_key(name: object) -> str:
 
 
 def devig_two_way(odds_a: float, odds_b: float) -> float:
-    """De-vig to-veis marked -> ren implisitt P for utfall A (normalisert til 1)."""
+    """Proporsjonal de-vig (historisk). Undervurderer sterke favoritter med
+    ~2 pp (jf. reports/toppN_favoritter.md) — bruk devig_power i ny kode."""
     ia, ib = 1.0 / odds_a, 1.0 / odds_b
     return ia / (ia + ib)
+
+
+def devig_power(odds_a: float, odds_b: float) -> float:
+    """Potens-de-vig: finn k slik at (1/a)^k + (1/b)^k = 1, P_a = (1/a)^k.
+
+    Legger marginen der boka faktisk legger den (mest på underdogen), og
+    treffer utfallene bedre enn proporsjonal normalisering: for favoritter
+    med P >= 0,85 hos Pinnacle er observert treff 92,4 %, proporsjonal P
+    90,2 %, potens-P 91,6 % (102 983 kamper 2005–2026)."""
+    ia, ib = 1.0 / float(odds_a), 1.0 / float(odds_b)
+    if ia <= 0 or ib <= 0:
+        raise ValueError("odds må være > 1")
+    lo, hi = 1e-3, 50.0  # k>1 når overround>0, k<1 ved underround
+    for _ in range(80):
+        k = 0.5 * (lo + hi)
+        if ia ** k + ib ** k > 1.0:
+            lo = k
+        else:
+            hi = k
+    k = 0.5 * (lo + hi)
+    pa = ia ** k
+    return pa / (pa + ib ** k)  # renormaliser bort siste bisection-rest
+
+
+def devig_power_array(odds_a, odds_b):
+    """Vektorisert potens-de-vig (Newton) for pandas/numpy-serier; NaN bevares."""
+    ia = 1.0 / np.asarray(odds_a, dtype=float)
+    ib = 1.0 / np.asarray(odds_b, dtype=float)
+    ok = np.isfinite(ia) & np.isfinite(ib) & (ia > 0) & (ib > 0)
+    k = np.ones_like(ia)
+    la, lb = np.log(np.where(ok, ia, 0.5)), np.log(np.where(ok, ib, 0.5))
+    for _ in range(40):
+        fa, fb = np.exp(k * la), np.exp(k * lb)
+        f = fa + fb - 1.0
+        df = fa * la + fb * lb
+        step = np.where(np.abs(df) > 1e-12, f / df, 0.0)
+        k = np.clip(k - step, 1e-3, 50.0)
+    pa = np.exp(k * la)
+    out = pa / (pa + np.exp(k * lb))
+    return np.where(ok, out, np.nan)
 
 
 # --- nedlasting --------------------------------------------------------------
@@ -126,17 +167,16 @@ def load_odds(seasons: list[int] | None = None, *, force_refresh: bool = False) 
     odds["wkey"] = odds["Winner"].map(tennis_data_surname_key)
     odds["lkey"] = odds["Loser"].map(tennis_data_surname_key)
 
-    # De-vig: implisitt P normalisert slik at de to summerer til 1.
+    # De-vig (potens): P_w + P_l = 1, marginen legges der boka legger den.
     iw, il = 1.0 / odds["PSW"], 1.0 / odds["PSL"]
     over = iw + il
-    odds["pinn_p_winner"] = iw / over
+    odds["pinn_p_winner"] = devig_power_array(odds["PSW"], odds["PSL"])
     odds["pinn_overround"] = over - 1.0  # margin (vig)
     if {"B365W", "B365L"}.issubset(odds.columns):
         # 2025+-filene har 0/ugyldige B365-odds på enkelte rader.
         b365w = pd.to_numeric(odds["B365W"], errors="coerce").where(lambda s: s > 1.0)
         b365l = pd.to_numeric(odds["B365L"], errors="coerce").where(lambda s: s > 1.0)
-        bw, bl = 1.0 / b365w, 1.0 / b365l
-        odds["b365_p_winner"] = bw / (bw + bl)
+        odds["b365_p_winner"] = devig_power_array(b365w, b365l)
     else:
         odds["b365_p_winner"] = np.nan
 
