@@ -26,6 +26,8 @@ import requests
 from . import config
 
 _ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/tennis/{tour}/scoreboard"
+# Akamai foran ESPN svarer 403 på "Mozilla/5.0" (sept. 2026); en ærlig UA går gjennom.
+_USER_AGENT = "tennis-tips/1.0"
 _CACHE_DIR = config.RAW_DIR / "results_cache"
 _MAX_GAP_DAYS = 30      # hent aldri mer enn dette bakover; eldre venter på tennis-data
 _FRESH_MAX_AGE = 6 * 3600  # i dag/i går: hent på nytt hvis cache er eldre enn dette
@@ -48,12 +50,13 @@ def fetch_day(tour: str, day: date_cls, timeout: int = 20) -> dict:
     try:
         r = requests.get(_ESPN_URL.format(tour=tour),
                          params={"dates": day.strftime("%Y%m%d")},
-                         headers={"User-Agent": "Mozilla/5.0"}, timeout=timeout)
+                         headers={"User-Agent": _USER_AGENT}, timeout=timeout)
         if r.status_code == 200:
             path.write_text(r.text)
             return r.json()
-    except requests.RequestException:
-        pass
+        print(f"  ESPN {tour} {day}: HTTP {r.status_code} — bruker cache/tomt")
+    except requests.RequestException as e:
+        print(f"  ESPN {tour} {day}: nettverksfeil ({e.__class__.__name__}) — bruker cache/tomt")
     if path.exists():
         try:
             return json.loads(path.read_text())

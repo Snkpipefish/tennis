@@ -33,9 +33,13 @@ SOURCE_URLS = {
 
 # tennis-data.co.uk closing odds (Pinnacle + Bet365). {year} fylles inn.
 # ATP: /YYYY/YYYY.xlsx, WTA: /YYYYw/YYYY.xlsx
+# Filene ligger under et skjult prefiks som kan endres (sept. 2026:
+# /hrjk-.../2026/2026.xlsx). Henteren slår derfor opp lenken på oversiktssiden
+# først; URL-ene under er reserveløsning hvis oppslaget feiler.
+TENNIS_DATA_INDEX = "https://www.tennis-data.co.uk/alldata.php"
 TENNIS_DATA_URLS = {
-    "atp": "http://www.tennis-data.co.uk/{year}/{year}.xlsx",
-    "wta": "http://www.tennis-data.co.uk/{year}w/{year}.xlsx",
+    "atp": "https://www.tennis-data.co.uk/{year}/{year}.xlsx",
+    "wta": "https://www.tennis-data.co.uk/{year}w/{year}.xlsx",
 }
 TENNIS_DATA_CACHE = ODDS_DIR / "tennis_data_cache"
 TENNIS_DATA_CACHE.mkdir(parents=True, exist_ok=True)

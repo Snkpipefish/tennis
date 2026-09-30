@@ -107,6 +107,34 @@ def _td_cache_path(tour: str, year: int) -> Path:
     return config.TENNIS_DATA_CACHE / f"{tour}_{year}.xlsx"
 
 
+_TD_HEADERS = {"User-Agent": "tennis-tips/1.0"}
+_td_index_links: dict[str, str] | None = None
+
+
+def _td_resolve_url(tour: str, year: int) -> str:
+    """Finn nedlastingslenken for tour/år på tennis-data sin oversiktsside.
+
+    Siden lenker til f.eks. hrjk-.../2026/2026.xlsx (ATP) og .../2026w/2026.xlsx
+    (WTA). Prefikset er ukjent på forhånd og kan endres, så vi leser det hver
+    kjøring (én gang per prosess). Feiler oppslaget brukes config-URL-en."""
+    global _td_index_links
+    if _td_index_links is None:
+        _td_index_links = {}
+        try:
+            r = requests.get(config.TENNIS_DATA_INDEX, headers=_TD_HEADERS, timeout=60)
+            if r.status_code == 200:
+                for href in re.findall(r"""href=["']?([^"'\s>]+\.xlsx)""", r.text, flags=re.I):
+                    key = href.rsplit("/", 2)[-2:]  # ["2026w", "2026.xlsx"]
+                    _td_index_links["/".join(key).lower()] = href
+        except requests.RequestException:
+            pass
+    suffix = f"{year}{'w' if tour == 'wta' else ''}/{year}.xlsx"
+    href = _td_index_links.get(suffix)
+    if href:
+        return href if href.startswith("http") else config.TENNIS_DATA_INDEX.rsplit("/", 1)[0] + "/" + href.lstrip("/")
+    return config.TENNIS_DATA_URLS[tour].format(year=year)
+
+
 def fetch_tennis_data(seasons: list[int] | None = None, *, force_refresh: bool = False, verbose: bool = True) -> None:
     """Last tennis-data-xlsx til cache.
 
@@ -125,17 +153,20 @@ def fetch_tennis_data(seasons: list[int] | None = None, *, force_refresh: bool =
                      and time.time() - path.stat().st_mtime > 12 * 3600)
             if path.exists() and not force_refresh and not stale:
                 continue
-            url = config.TENNIS_DATA_URLS[tour].format(year=year)
+            url = _td_resolve_url(tour, year)
             if verbose:
                 print(f"  laster odds {tour} {year} ...", flush=True)
             for attempt in range(3):
                 try:
-                    r = requests.get(url, timeout=60)
+                    r = requests.get(url, headers=_TD_HEADERS, timeout=60)
                     if r.status_code == 200 and r.content:
                         path.write_bytes(r.content)
                         break
-                except requests.RequestException:
-                    pass
+                    if verbose:
+                        print(f"  tennis-data {tour} {year}: HTTP {r.status_code} ({url})")
+                except requests.RequestException as e:
+                    if verbose:
+                        print(f"  tennis-data {tour} {year}: nettverksfeil ({e.__class__.__name__})")
                 time.sleep(1.0 * (attempt + 1))
             else:
                 if path.exists():  # oppfrisking feilet -> behold gammel cache
