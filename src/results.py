@@ -25,11 +25,16 @@ import requests
 
 from . import config
 
-_ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/tennis/{tour}/scoreboard"
-# Akamai foran ESPN svarer 403 på "Mozilla/5.0" (sept. 2026); en ærlig UA går gjennom.
-_USER_AGENT = "tennis-tips/1.0"
+# site.api.espn.com (Akamai) ga 403 fra GitHub Actions på flere User-Agents
+# fra 6. sept. 2026 — samme data på site.web.api.espn.com gikk gjennom for alle.
+# Vi sender ingen egen User-Agent (requests' standard fikk 200 på begge verter).
+_ESPN_URL = "https://site.web.api.espn.com/apis/site/v2/sports/tennis/{tour}/scoreboard"
 _CACHE_DIR = config.RAW_DIR / "results_cache"
-_MAX_GAP_DAYS = 30      # hent aldri mer enn dette bakover; eldre venter på tennis-data
+# Hent aldri mer enn dette bakover. Tidligere 30 med antakelsen om at tennis-data
+# flytter grunnlinjen — men tennis-data.co.uk er bak Cloudflare-utfordring fra
+# Actions (sept. 2026), så ESPN må kunne dekke hele gapet alene. Dager caches,
+# så kostnaden er én forespørsel per dag og tour første gang.
+_MAX_GAP_DAYS = 120
 _FRESH_MAX_AGE = 6 * 3600  # i dag/i går: hent på nytt hvis cache er eldre enn dette
 
 
@@ -50,7 +55,7 @@ def fetch_day(tour: str, day: date_cls, timeout: int = 20) -> dict:
     try:
         r = requests.get(_ESPN_URL.format(tour=tour),
                          params={"dates": day.strftime("%Y%m%d")},
-                         headers={"User-Agent": _USER_AGENT}, timeout=timeout)
+                         timeout=timeout)
         if r.status_code == 200:
             path.write_text(r.text)
             return r.json()

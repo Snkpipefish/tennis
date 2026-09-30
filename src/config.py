@@ -36,6 +36,9 @@ SOURCE_URLS = {
 # Filene ligger under et skjult prefiks som kan endres (sept. 2026:
 # /hrjk-.../2026/2026.xlsx). Henteren slår derfor opp lenken på oversiktssiden
 # først; URL-ene under er reserveløsning hvis oppslaget feiler.
+# NB: fra GitHub Actions svarer tennis-data med Cloudflare-utfordring (403,
+# "Just a moment...") siden sept. 2026. Da beholdes cachet fil, og ESPN
+# (results.py) dekker resultat-gapet alene. Vi prøver likevel hver kjøring.
 TENNIS_DATA_INDEX = "https://www.tennis-data.co.uk/alldata.php"
 TENNIS_DATA_URLS = {
     "atp": "https://www.tennis-data.co.uk/{year}/{year}.xlsx",
